@@ -4,18 +4,26 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
+using System.Net.Http;
+using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 
 namespace haxballeditor
 {
     public partial class MainWindow : Window
     {
+        private const string AppVersion = "1.0.0";
+        private const string UpdateManifestUrl = "https://raw.githubusercontent.com/xYigit58/HaxStudio-Updates/main/latest.json";
+        private static readonly HttpClient UpdateHttpClient = new() { Timeout = TimeSpan.FromSeconds(10) };
+
         private string currentTool = "Select";
         private StadiumData stadium = new StadiumData();
 
@@ -155,11 +163,117 @@ namespace haxballeditor
             UpdateStatus("Editor ready.");
         }
 
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             RenderStadium();
             UpdateJsonPreview();
             UpdateMaximizeRestoreButtonText();
+            await HideSplashOverlayAsync();
+        }
+
+        private async Task HideSplashOverlayAsync()
+        {
+            await RunSplashStepAsync("Starting HaxStudio...", "Initializing application shell", 8, 900);
+            await RunSplashStepAsync("Loading editor core...", "Preparing stadium data model and file services", 20, 1100);
+            await RunSplashStepAsync("Preparing viewport...", "Starting renderer, camera controls, grid and snap systems", 34, 1300);
+            await RunSplashStepAsync("Loading object tools...", "Registering vertex, segment, disc, goal, plane, spawn and joint tools", 48, 1400);
+            await RunSplashStepAsync("Building workspace...", "Loading Inspector, Layers, Validator and JSON editor panels", 64, 1500);
+            await RunSplashStepAsync("Loading preferences...", "Applying theme, hotkeys, viewport display options and update settings", 78, 1300);
+            await RunSplashStepAsync("Checking interface...", "Finalizing custom title bar, status bar and editor layout", 90, 1200);
+            await RunSplashStepAsync("Ready.", "Opening HaxStudio workspace", 100, 650);
+            await PlaySplashFinalBrandAnimationAsync();
+
+            if (SplashOverlay != null)
+            {
+                SplashOverlay.Visibility = Visibility.Collapsed;
+            }
+        }
+
+
+
+        private async Task PlaySplashFinalBrandAnimationAsync()
+        {
+            if (SplashContentCard == null || SplashFinalBrandOverlay == null || SplashFinalBrandScale == null)
+            {
+                await Task.Delay(500);
+                return;
+            }
+
+            SplashFinalBrandOverlay.Opacity = 0;
+            SplashFinalBrandScale.ScaleX = 0.92;
+            SplashFinalBrandScale.ScaleY = 0.92;
+
+            DoubleAnimation cardFadeOut = new()
+            {
+                From = 1,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(320),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            DoubleAnimation brandFadeIn = new()
+            {
+                From = 0,
+                To = 1,
+                BeginTime = TimeSpan.FromMilliseconds(120),
+                Duration = TimeSpan.FromMilliseconds(620),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            DoubleAnimation brandScaleIn = new()
+            {
+                From = 0.92,
+                To = 1,
+                BeginTime = TimeSpan.FromMilliseconds(120),
+                Duration = TimeSpan.FromMilliseconds(720),
+                EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.25 }
+            };
+
+            SplashContentCard.BeginAnimation(OpacityProperty, cardFadeOut);
+            SplashFinalBrandOverlay.BeginAnimation(OpacityProperty, brandFadeIn);
+            SplashFinalBrandScale.BeginAnimation(ScaleTransform.ScaleXProperty, brandScaleIn);
+            SplashFinalBrandScale.BeginAnimation(ScaleTransform.ScaleYProperty, brandScaleIn);
+
+            await Task.Delay(1450);
+
+            DoubleAnimation overlayFadeOut = new()
+            {
+                From = 1,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(520),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
+            };
+
+            SplashOverlay.BeginAnimation(OpacityProperty, overlayFadeOut);
+            await Task.Delay(560);
+
+            SplashOverlay.BeginAnimation(OpacityProperty, null);
+            SplashOverlay.Opacity = 0;
+        }
+
+        private async Task RunSplashStepAsync(string status, string detail, double progress, int delayMilliseconds)
+        {
+            if (SplashStatusText != null)
+            {
+                SplashStatusText.Text = status;
+            }
+
+            if (SplashDetailText != null)
+            {
+                SplashDetailText.Text = detail;
+            }
+
+            if (SplashProgressBar != null)
+            {
+                SplashProgressBar.Value = progress;
+            }
+
+            if (SplashPercentText != null)
+            {
+                SplashPercentText.Text = $"{progress:0}%";
+            }
+
+            await Task.Delay(delayMilliseconds);
         }
 
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -1084,25 +1198,264 @@ namespace haxballeditor
 
         private void FillUpdateSettings(StackPanel content)
         {
-            AddSettingsPageTitle(content, "Check for Updates", "Update checking will live here.");
+            AddSettingsPageTitle(content, "Check for Updates", "Check the public HaxStudio update manifest and download new builds from inside the app.");
 
-            AddSettingsInfoRow(content, "Status", "Manual development build");
-            AddSettingsInfoRow(content, "Update Channel", "Local project files");
+            AddSettingsInfoRow(content, "Current Version", AppVersion);
+            AddSettingsInfoRow(content, "Update Channel", "Stable");
+            AddSettingsInfoRow(content, "Manifest", UpdateManifestUrl);
+
+            TextBlock resultText = new()
+            {
+                Text = "Press Check for Updates to compare your local version with the latest public manifest.",
+                Foreground = new SolidColorBrush(Color.FromRgb(168, 174, 184)),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 12, 0, 0)
+            };
 
             Button checkButton = CreateSettingsButton("Check for Updates");
             checkButton.HorizontalAlignment = HorizontalAlignment.Left;
             checkButton.Margin = new Thickness(0, 14, 0, 0);
-            checkButton.Click += (_, _) =>
+            checkButton.Click += async (_, _) =>
             {
-                MessageBox.Show(
-                    "Automatic update checking is not connected yet.",
-                    "Check for Updates",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                checkButton.IsEnabled = false;
+                string oldText = checkButton.Content?.ToString() ?? "Check for Updates";
+                checkButton.Content = "Checking...";
+                resultText.Text = "Checking for updates...";
+
+                try
+                {
+                    UpdateCheckResult result = await CheckForUpdatesAsync();
+
+                    if (result.IsNewerVersionAvailable)
+                    {
+                        resultText.Text = $"New version available: {result.LatestVersion}\n\nCurrent version: {AppVersion}\n\nRelease notes:\n{result.ReleaseNotesText}";
+
+                        MessageBoxResult downloadResult = MessageBox.Show(
+                            $"A new HaxStudio update is available.\n\nCurrent version: {AppVersion}\nLatest version: {result.LatestVersion}\n\nDownload the update inside HaxStudio now?",
+                            "HaxStudio Update Available",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Information);
+
+                        if (downloadResult == MessageBoxResult.Yes)
+                        {
+                            if (!CanDownloadUpdatePackage(result.DownloadUrl))
+                            {
+                                resultText.Text += "\n\nThis update manifest does not point to a direct .zip/.exe/.msi package yet. Opening the release page instead.";
+
+                                if (!string.IsNullOrWhiteSpace(result.ReleasePageUrl))
+                                {
+                                    OpenExternalUrl(result.ReleasePageUrl);
+                                }
+                                else if (!string.IsNullOrWhiteSpace(result.DownloadUrl))
+                                {
+                                    OpenExternalUrl(result.DownloadUrl);
+                                }
+
+                                return;
+                            }
+
+                            checkButton.Content = "Downloading...";
+                            resultText.Text = $"Downloading HaxStudio {result.LatestVersion}...";
+
+                            string downloadedFilePath = await DownloadUpdatePackageAsync(result, progressText =>
+                            {
+                                Dispatcher.Invoke(() => resultText.Text = progressText);
+                            });
+
+                            resultText.Text = $"Update downloaded successfully.\n\nFile:\n{downloadedFilePath}\n\nClose HaxStudio, extract/run the downloaded package, then start the new version.";
+
+                            MessageBoxResult openFolderResult = MessageBox.Show(
+                                $"Update downloaded successfully.\n\n{downloadedFilePath}\n\nOpen the download folder?",
+                                "Update Downloaded",
+                                MessageBoxButton.YesNo,
+                                MessageBoxImage.Information);
+
+                            if (openFolderResult == MessageBoxResult.Yes)
+                            {
+                                OpenFileLocation(downloadedFilePath);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        resultText.Text = $"You are up to date.\n\nCurrent version: {AppVersion}\nLatest version: {result.LatestVersion}";
+
+                        MessageBox.Show(
+                            $"HaxStudio is up to date.\n\nCurrent version: {AppVersion}",
+                            "Check for Updates",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    resultText.Text = $"Update check failed.\n\n{ex.Message}";
+
+                    MessageBox.Show(
+                        $"Could not check for updates.\n\n{ex.Message}",
+                        "Check for Updates",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                finally
+                {
+                    checkButton.Content = oldText;
+                    checkButton.IsEnabled = true;
+                }
             };
             content.Children.Add(checkButton);
+            content.Children.Add(resultText);
 
-            AddSettingsNote(content, "Later this can check a GitHub release page or your own update manifest.");
+            AddSettingsNote(content, "Update metadata is read from the public HaxStudio-Updates repository. New builds can be downloaded inside the app when the manifest points to a direct release package. The source code repository can stay private.");
+        }
+
+        private async Task<UpdateCheckResult> CheckForUpdatesAsync()
+        {
+            string json = await UpdateHttpClient.GetStringAsync(UpdateManifestUrl);
+
+            UpdateManifest? manifest = JsonSerializer.Deserialize<UpdateManifest>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (manifest == null || string.IsNullOrWhiteSpace(manifest.Version))
+            {
+                throw new InvalidOperationException("The update manifest is empty or invalid.");
+            }
+
+            string releaseNotesText = manifest.ReleaseNotes == null || manifest.ReleaseNotes.Count == 0
+                ? "No release notes provided."
+                : "- " + string.Join("\n- ", manifest.ReleaseNotes);
+
+            return new UpdateCheckResult
+            {
+                LatestVersion = manifest.Version.Trim(),
+                DownloadUrl = manifest.DownloadUrl ?? "",
+                ReleasePageUrl = manifest.ReleasePageUrl ?? manifest.DownloadUrl ?? "",
+                FileName = string.IsNullOrWhiteSpace(manifest.FileName) ? $"HaxStudio-v{manifest.Version.Trim()}.zip" : manifest.FileName.Trim(),
+                ReleaseNotesText = releaseNotesText,
+                IsNewerVersionAvailable = CompareVersions(manifest.Version, AppVersion) > 0
+            };
+        }
+
+        private static bool CanDownloadUpdatePackage(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return false;
+            }
+
+            string lowerUrl = url.Trim().ToLowerInvariant();
+            return lowerUrl.EndsWith(".zip") || lowerUrl.EndsWith(".exe") || lowerUrl.EndsWith(".msi");
+        }
+
+        private static async Task<string> DownloadUpdatePackageAsync(UpdateCheckResult result, Action<string>? progressCallback = null)
+        {
+            if (string.IsNullOrWhiteSpace(result.DownloadUrl))
+            {
+                throw new InvalidOperationException("The update manifest does not contain a download URL.");
+            }
+
+            string downloadsFolder = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Downloads",
+                "HaxStudio Updates");
+
+            Directory.CreateDirectory(downloadsFolder);
+
+            string safeFileName = MakeSafeFileName(result.FileName);
+            string targetPath = System.IO.Path.Combine(downloadsFolder, safeFileName);
+
+            using HttpResponseMessage response = await UpdateHttpClient.GetAsync(result.DownloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+
+            long? totalBytes = response.Content.Headers.ContentLength;
+            await using Stream inputStream = await response.Content.ReadAsStreamAsync();
+            await using FileStream outputStream = new(targetPath, FileMode.Create, FileAccess.Write, FileShare.None);
+
+            byte[] buffer = new byte[81920];
+            long totalRead = 0;
+
+            while (true)
+            {
+                int read = await inputStream.ReadAsync(buffer, 0, buffer.Length);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                await outputStream.WriteAsync(buffer, 0, read);
+                totalRead += read;
+
+                if (totalBytes.HasValue && totalBytes.Value > 0)
+                {
+                    double percent = totalRead * 100.0 / totalBytes.Value;
+                    progressCallback?.Invoke($"Downloading HaxStudio {result.LatestVersion}... {percent:0}%");
+                }
+                else
+                {
+                    progressCallback?.Invoke($"Downloading HaxStudio {result.LatestVersion}... {totalRead / 1024.0 / 1024.0:0.0} MB");
+                }
+            }
+
+            return targetPath;
+        }
+
+        private static string MakeSafeFileName(string fileName)
+        {
+            string safe = string.IsNullOrWhiteSpace(fileName) ? "HaxStudio-Update.zip" : fileName.Trim();
+
+            foreach (char invalidChar in System.IO.Path.GetInvalidFileNameChars())
+            {
+                safe = safe.Replace(invalidChar, '_');
+            }
+
+            return safe;
+        }
+
+        private static int CompareVersions(string latestVersion, string currentVersion)
+        {
+            Version latest = ParseVersion(latestVersion);
+            Version current = ParseVersion(currentVersion);
+            return latest.CompareTo(current);
+        }
+
+        private static Version ParseVersion(string versionText)
+        {
+            string clean = (versionText ?? "0.0.0").Trim();
+
+            if (clean.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            {
+                clean = clean.Substring(1);
+            }
+
+            int dashIndex = clean.IndexOf('-');
+            if (dashIndex >= 0)
+            {
+                clean = clean.Substring(0, dashIndex);
+            }
+
+            return Version.TryParse(clean, out Version? version) ? version : new Version(0, 0, 0);
+        }
+
+        private static void OpenExternalUrl(string url)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+
+        private static void OpenFileLocation(string filePath)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{filePath}\"",
+                UseShellExecute = true
+            });
         }
 
         private void AddSettingsPageTitle(StackPanel parent, string titleText, string subtitleText)
@@ -1250,6 +1603,296 @@ namespace haxballeditor
         private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
             Close();
+        }
+
+
+        private void ApplyStadiumPhysicsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                PushUndoState("Edit Stadium Physics");
+                ApplyStadiumPhysicsFromUi();
+                UpdateJsonPreview();
+                RefreshValidationPanel(false);
+                UpdateStatus("Stadium properties and physics updated.");
+            }
+            catch (FormatException ex)
+            {
+                MessageBox.Show(ex.Message, "Invalid Stadium Physics", MessageBoxButton.OK, MessageBoxImage.Warning);
+                UpdateStatus("Stadium physics update failed.");
+            }
+        }
+
+        private void ResetStadiumPhysicsButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetDefaultStadiumPhysicsUiValues();
+            UpdateStatus("Default stadium physics values loaded into the inspector. Click Apply Physics to save them.");
+        }
+
+        private void SetDefaultStadiumPhysicsUiValues()
+        {
+            CanBeStoredCheckBox.IsChecked = true;
+
+            PlayerGravityXTextBox.Text = "0";
+            PlayerGravityYTextBox.Text = "0";
+            PlayerRadiusTextBox.Text = "15";
+            PlayerBCoefTextBox.Text = "0.5";
+            PlayerInvMassTextBox.Text = "0.5";
+            PlayerDampingTextBox.Text = "0.96";
+            PlayerCGroupTextBox.Text = "red, blue";
+            PlayerAccelerationTextBox.Text = "0.1";
+            PlayerKickingAccelerationTextBox.Text = "0.07";
+            PlayerKickingDampingTextBox.Text = "0.96";
+            PlayerKickStrengthTextBox.Text = "5";
+            PlayerKickbackTextBox.Text = "0";
+
+            BallGravityXTextBox.Text = "0";
+            BallGravityYTextBox.Text = "0";
+            BallRadiusTextBox.Text = "10";
+            BallBCoefTextBox.Text = "0.5";
+            BallInvMassTextBox.Text = "1";
+            BallDampingTextBox.Text = "0.99";
+            BallColorTextBox.Text = "#FFFFFF";
+            BallCMaskTextBox.Text = "all";
+            BallCGroupTextBox.Text = "ball";
+        }
+
+        private void UpdateStadiumPhysicsUiFromData()
+        {
+            if (isUpdatingUiFromData)
+            {
+                return;
+            }
+
+            isUpdatingUiFromData = true;
+
+            try
+            {
+                Dictionary<string, JsonElement>? playerPhysics = GetTopLevelObjectExtension("playerPhysics");
+                Dictionary<string, JsonElement>? ballPhysics = GetTopLevelObjectExtension("ballPhysics");
+
+                CanBeStoredCheckBox.IsChecked = GetTopLevelBoolExtension("canBeStored", true);
+
+                SetVector2TextBoxes(playerPhysics, "gravity", PlayerGravityXTextBox, PlayerGravityYTextBox, "0", "0");
+                PlayerRadiusTextBox.Text = GetObjectNumberString(playerPhysics, "radius", "15");
+                PlayerBCoefTextBox.Text = GetObjectNumberString(playerPhysics, "bCoef", "0.5");
+                PlayerInvMassTextBox.Text = GetObjectNumberString(playerPhysics, "invMass", "0.5");
+                PlayerDampingTextBox.Text = GetObjectNumberString(playerPhysics, "damping", "0.96");
+                PlayerCGroupTextBox.Text = GetObjectStringOrArrayString(playerPhysics, "cGroup", "red, blue");
+                PlayerAccelerationTextBox.Text = GetObjectNumberString(playerPhysics, "acceleration", "0.1");
+                PlayerKickingAccelerationTextBox.Text = GetObjectNumberString(playerPhysics, "kickingAcceleration", "0.07");
+                PlayerKickingDampingTextBox.Text = GetObjectNumberString(playerPhysics, "kickingDamping", "0.96");
+                PlayerKickStrengthTextBox.Text = GetObjectNumberString(playerPhysics, "kickStrength", "5");
+                PlayerKickbackTextBox.Text = GetObjectNumberString(playerPhysics, "kickback", "0");
+
+                SetVector2TextBoxes(ballPhysics, "gravity", BallGravityXTextBox, BallGravityYTextBox, "0", "0");
+                BallRadiusTextBox.Text = GetObjectNumberString(ballPhysics, "radius", "10");
+                BallBCoefTextBox.Text = GetObjectNumberString(ballPhysics, "bCoef", "0.5");
+                BallInvMassTextBox.Text = GetObjectNumberString(ballPhysics, "invMass", "1");
+                BallDampingTextBox.Text = GetObjectNumberString(ballPhysics, "damping", "0.99");
+                BallColorTextBox.Text = FormatColorForUi(GetObjectString(ballPhysics, "color", "FFFFFF"));
+                BallCMaskTextBox.Text = GetObjectStringOrArrayString(ballPhysics, "cMask", "all");
+                BallCGroupTextBox.Text = GetObjectStringOrArrayString(ballPhysics, "cGroup", "ball");
+            }
+            finally
+            {
+                isUpdatingUiFromData = false;
+            }
+        }
+
+        private void ApplyStadiumPhysicsFromUi()
+        {
+            Dictionary<string, object?> playerPhysics = new()
+            {
+                ["gravity"] = ReadVector2ForPhysics(PlayerGravityXTextBox.Text, PlayerGravityYTextBox.Text, "playerPhysics.gravity"),
+                ["radius"] = ReadPhysicsNumber(PlayerRadiusTextBox.Text, "playerPhysics.radius"),
+                ["bCoef"] = ReadPhysicsNumber(PlayerBCoefTextBox.Text, "playerPhysics.bCoef"),
+                ["invMass"] = ReadPhysicsNumber(PlayerInvMassTextBox.Text, "playerPhysics.invMass"),
+                ["damping"] = ReadPhysicsNumber(PlayerDampingTextBox.Text, "playerPhysics.damping"),
+                ["cGroup"] = ReadCollisionListForPhysics(PlayerCGroupTextBox.Text, "playerPhysics.cGroup"),
+                ["acceleration"] = ReadPhysicsNumber(PlayerAccelerationTextBox.Text, "playerPhysics.acceleration"),
+                ["kickingAcceleration"] = ReadPhysicsNumber(PlayerKickingAccelerationTextBox.Text, "playerPhysics.kickingAcceleration"),
+                ["kickingDamping"] = ReadPhysicsNumber(PlayerKickingDampingTextBox.Text, "playerPhysics.kickingDamping"),
+                ["kickStrength"] = ReadPhysicsNumber(PlayerKickStrengthTextBox.Text, "playerPhysics.kickStrength"),
+                ["kickback"] = ReadPhysicsNumber(PlayerKickbackTextBox.Text, "playerPhysics.kickback")
+            };
+
+            Dictionary<string, object?> ballPhysics = new()
+            {
+                ["gravity"] = ReadVector2ForPhysics(BallGravityXTextBox.Text, BallGravityYTextBox.Text, "ballPhysics.gravity"),
+                ["radius"] = ReadPhysicsNumber(BallRadiusTextBox.Text, "ballPhysics.radius"),
+                ["bCoef"] = ReadPhysicsNumber(BallBCoefTextBox.Text, "ballPhysics.bCoef"),
+                ["invMass"] = ReadPhysicsNumber(BallInvMassTextBox.Text, "ballPhysics.invMass"),
+                ["damping"] = ReadPhysicsNumber(BallDampingTextBox.Text, "ballPhysics.damping"),
+                ["color"] = NormalizeColorForExport(BallColorTextBox.Text),
+                ["cMask"] = ReadCollisionListForPhysics(BallCMaskTextBox.Text, "ballPhysics.cMask"),
+                ["cGroup"] = ReadCollisionListForPhysics(BallCGroupTextBox.Text, "ballPhysics.cGroup")
+            };
+
+            stadium.ExtensionData ??= new Dictionary<string, JsonElement>();
+            stadium.ExtensionData["canBeStored"] = JsonSerializer.SerializeToElement(CanBeStoredCheckBox.IsChecked == true);
+            stadium.ExtensionData["playerPhysics"] = JsonSerializer.SerializeToElement(playerPhysics);
+            stadium.ExtensionData["ballPhysics"] = JsonSerializer.SerializeToElement(ballPhysics);
+        }
+
+        private double ReadPhysicsNumber(string text, string fieldName)
+        {
+            if (!TryReadDouble(text, out double value))
+            {
+                throw new FormatException($"Invalid {fieldName} value.");
+            }
+
+            return value;
+        }
+
+        private List<double> ReadVector2ForPhysics(string xText, string yText, string fieldName)
+        {
+            if (!TryReadDouble(xText, out double x) || !TryReadDouble(yText, out double y))
+            {
+                throw new FormatException($"Invalid {fieldName} value. Use two numbers like 0 and 0.");
+            }
+
+            return new List<double> { x, y };
+        }
+
+        private List<string> ReadCollisionListForPhysics(string text, string fieldName)
+        {
+            List<string>? values = ParseCollisionText(text);
+            if (values == null || values.Count == 0)
+            {
+                throw new FormatException($"Invalid {fieldName} value. Use one or more values separated by commas.");
+            }
+
+            return values;
+        }
+
+        private bool GetTopLevelBoolExtension(string key, bool defaultValue)
+        {
+            if (stadium.ExtensionData == null || !stadium.ExtensionData.TryGetValue(key, out JsonElement value))
+            {
+                return defaultValue;
+            }
+
+            if (value.ValueKind == JsonValueKind.True)
+            {
+                return true;
+            }
+
+            if (value.ValueKind == JsonValueKind.False)
+            {
+                return false;
+            }
+
+            if (value.ValueKind == JsonValueKind.String && bool.TryParse(value.GetString(), out bool parsed))
+            {
+                return parsed;
+            }
+
+            return defaultValue;
+        }
+
+        private Dictionary<string, JsonElement>? GetTopLevelObjectExtension(string key)
+        {
+            if (stadium.ExtensionData == null || !stadium.ExtensionData.TryGetValue(key, out JsonElement value) || value.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(value.GetRawText());
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private string GetObjectNumberString(Dictionary<string, JsonElement>? data, string key, string defaultValue)
+        {
+            if (data == null || !data.TryGetValue(key, out JsonElement value))
+            {
+                return defaultValue;
+            }
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out double number))
+            {
+                return number.ToString("0.##", CultureInfo.InvariantCulture);
+            }
+
+            return value.ToString();
+        }
+
+        private string GetObjectString(Dictionary<string, JsonElement>? data, string key, string defaultValue)
+        {
+            if (data == null || !data.TryGetValue(key, out JsonElement value))
+            {
+                return defaultValue;
+            }
+
+            if (value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString() ?? defaultValue;
+            }
+
+            return value.ToString();
+        }
+
+        private string GetObjectStringOrArrayString(Dictionary<string, JsonElement>? data, string key, string defaultValue)
+        {
+            if (data == null || !data.TryGetValue(key, out JsonElement value))
+            {
+                return defaultValue;
+            }
+
+            if (value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString() ?? defaultValue;
+            }
+
+            if (value.ValueKind == JsonValueKind.Array)
+            {
+                List<string> parts = new();
+                foreach (JsonElement item in value.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String)
+                    {
+                        string? text = item.GetString();
+                        if (!string.IsNullOrWhiteSpace(text)) parts.Add(text);
+                    }
+                    else
+                    {
+                        parts.Add(item.ToString());
+                    }
+                }
+
+                return parts.Count > 0 ? string.Join(", ", parts) : defaultValue;
+            }
+
+            return value.ToString();
+        }
+
+        private void SetVector2TextBoxes(Dictionary<string, JsonElement>? data, string key, TextBox xTextBox, TextBox yTextBox, string defaultX, string defaultY)
+        {
+            xTextBox.Text = defaultX;
+            yTextBox.Text = defaultY;
+
+            if (data == null || !data.TryGetValue(key, out JsonElement value))
+            {
+                return;
+            }
+
+            if (value.ValueKind == JsonValueKind.Array && value.GetArrayLength() >= 2)
+            {
+                JsonElement x = value[0];
+                JsonElement y = value[1];
+                xTextBox.Text = x.ValueKind == JsonValueKind.Number && x.TryGetDouble(out double xNumber)
+                    ? xNumber.ToString("0.##", CultureInfo.InvariantCulture)
+                    : x.ToString();
+                yTextBox.Text = y.ValueKind == JsonValueKind.Number && y.TryGetDouble(out double yNumber)
+                    ? yNumber.ToString("0.##", CultureInfo.InvariantCulture)
+                    : y.ToString();
+            }
         }
 
         private void ApplyJsonButton_Click(object sender, RoutedEventArgs e)
@@ -4375,6 +5018,12 @@ namespace haxballeditor
             // Utility panels stay available only when nothing specific is selected.
             SetVisibility(JointToolExpander, !hasSelection);
             SetVisibility(BackgroundExpander, !hasSelection);
+            SetVisibility(StadiumPhysicsExpander, !hasSelection);
+
+            if (!hasSelection)
+            {
+                UpdateStadiumPhysicsUiFromData();
+            }
 
             SetVisibility(ObjectXFieldPanel, isVertex || isDisc || isSpawn);
             SetVisibility(ObjectYFieldPanel, isVertex || isDisc || isSpawn);
@@ -4410,6 +5059,7 @@ namespace haxballeditor
             {
                 JointToolExpander.IsExpanded = false;
                 BackgroundExpander.IsExpanded = false;
+                StadiumPhysicsExpander.IsExpanded = true;
             }
 
             if (isMulti)
@@ -8648,4 +9298,33 @@ namespace haxballeditor
         [JsonExtensionData]
         public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     }
+
+    public class UpdateManifest
+    {
+        [JsonPropertyName("version")]
+        public string Version { get; set; } = "";
+
+        [JsonPropertyName("downloadUrl")]
+        public string? DownloadUrl { get; set; }
+
+        [JsonPropertyName("releasePageUrl")]
+        public string? ReleasePageUrl { get; set; }
+
+        [JsonPropertyName("fileName")]
+        public string? FileName { get; set; }
+
+        [JsonPropertyName("releaseNotes")]
+        public List<string>? ReleaseNotes { get; set; }
+    }
+
+    public class UpdateCheckResult
+    {
+        public string LatestVersion { get; set; } = "";
+        public string DownloadUrl { get; set; } = "";
+        public string ReleasePageUrl { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string ReleaseNotesText { get; set; } = "";
+        public bool IsNewerVersionAvailable { get; set; }
+    }
+
 }

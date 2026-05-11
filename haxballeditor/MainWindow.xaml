@@ -1166,6 +1166,114 @@
                                         <TextBox x:Name="BgCornerRadiusTextBox" Style="{StaticResource InputTextBox}" LostFocus="BackgroundSettingTextBox_LostFocus" KeyDown="BackgroundSettingTextBox_KeyDown"/>
                                     </StackPanel>
                                 </Expander>
+
+                                <Expander x:Name="StadiumPhysicsExpander" Header="Stadium Physics" IsExpanded="True">
+                                    <StackPanel>
+                                        <TextBlock Text="These top-level .hbs values are edited when no object is selected. They are saved as canBeStored, playerPhysics and ballPhysics." Foreground="{StaticResource TextMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                                        <TextBlock Text="Stadium Properties" Style="{StaticResource SectionTitle}"/>
+                                        <CheckBox x:Name="CanBeStoredCheckBox" Content="canBeStored" IsChecked="True" ToolTip="If true, the stadium can be saved/stored by HaxBall when supported."/>
+
+                                        <TextBlock Text="Player Physics" Style="{StaticResource SectionTitle}"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="gravity X / Y" Style="{StaticResource PropertyLabel}"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="8"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox x:Name="PlayerGravityXTextBox" Grid.Column="0" Text="0" Style="{StaticResource InputTextBox}"/>
+                                                    <TextBox x:Name="PlayerGravityYTextBox" Grid.Column="2" Text="0" Style="{StaticResource InputTextBox}"/>
+                                                </Grid>
+                                                <TextBlock Text="radius" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerRadiusTextBox" Text="15" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="bCoef" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerBCoefTextBox" Text="0.5" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="invMass" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerInvMassTextBox" Text="0.5" Style="{StaticResource InputTextBox}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="damping" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerDampingTextBox" Text="0.96" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="cGroup" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerCGroupTextBox" Text="red, blue" Style="{StaticResource InputTextBox}" ToolTip="Example: red, blue"/>
+                                                <TextBlock Text="acceleration" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerAccelerationTextBox" Text="0.1" Style="{StaticResource InputTextBox}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock Text="Player Physics (Kick)" Style="{StaticResource SectionTitle}"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="kickingAcceleration" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerKickingAccelerationTextBox" Text="0.07" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="kickingDamping" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerKickingDampingTextBox" Text="0.96" Style="{StaticResource InputTextBox}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="kickStrength" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerKickStrengthTextBox" Text="5" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="kickback" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="PlayerKickbackTextBox" Text="0" Style="{StaticResource InputTextBox}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock Text="Ball Physics" Style="{StaticResource SectionTitle}"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="gravity X / Y" Style="{StaticResource PropertyLabel}"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="8"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox x:Name="BallGravityXTextBox" Grid.Column="0" Text="0" Style="{StaticResource InputTextBox}"/>
+                                                    <TextBox x:Name="BallGravityYTextBox" Grid.Column="2" Text="0" Style="{StaticResource InputTextBox}"/>
+                                                </Grid>
+                                                <TextBlock Text="radius" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="BallRadiusTextBox" Text="10" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="bCoef" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="BallBCoefTextBox" Text="0.5" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="invMass" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="BallInvMassTextBox" Text="1" Style="{StaticResource InputTextBox}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="damping" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="BallDampingTextBox" Text="0.99" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="color" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="BallColorTextBox" Text="#FFFFFF" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="cMask" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="BallCMaskTextBox" Text="all" Style="{StaticResource InputTextBox}"/>
+                                                <TextBlock Text="cGroup" Style="{StaticResource PropertyLabel}"/>
+                                                <TextBox x:Name="BallCGroupTextBox" Text="ball" Style="{StaticResource InputTextBox}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                                            <Button Content="Reset Defaults" Style="{StaticResource SmallButton}" Click="ResetStadiumPhysicsButton_Click"/>
+                                            <Button Content="Apply Physics" Style="{StaticResource PrimaryTopButton}" Height="30" MinWidth="110" Margin="6,2,0,2" Click="ApplyStadiumPhysicsButton_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Expander>
+
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>
@@ -1309,5 +1417,212 @@
                 <TextBlock x:Name="ObjectCountText" Text="Vertexes: 0 | Segments: 0 | Goals: 0 | Planes: 0 | Discs: 0 | Joints: 0 | Spawns: 0" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right" DockPanel.Dock="Right"/>
             </DockPanel>
         </Border>
+
+
+        <Grid x:Name="SplashOverlay"
+              Grid.RowSpan="4"
+              Panel.ZIndex="999"
+              Background="#080A0D"
+              Visibility="Visible">
+            <Grid>
+                <Grid.Background>
+                    <RadialGradientBrush Center="0.50,0.42" GradientOrigin="0.50,0.42" RadiusX="0.82" RadiusY="0.82">
+                        <GradientStop Color="#14202B" Offset="0"/>
+                        <GradientStop Color="#080A0D" Offset="0.62"/>
+                        <GradientStop Color="#050608" Offset="1"/>
+                    </RadialGradientBrush>
+                </Grid.Background>
+
+                <Border x:Name="SplashContentCard"
+                        Width="520"
+                        Height="300"
+                        Padding="0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="#11151C"
+                        BorderBrush="#263241"
+                        BorderThickness="1"
+                        CornerRadius="12">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="34" ShadowDepth="0" Opacity="0.40" Color="#000000"/>
+                    </Border.Effect>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="178"/>
+                            <ColumnDefinition Width="1"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Background="#0B0F14"
+                                CornerRadius="12,0,0,12">
+                            <Grid>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <Border Width="78"
+                                            Height="78"
+                                            CornerRadius="19"
+                                            Background="#101821"
+                                            BorderBrush="#2FB7E8"
+                                            BorderThickness="2"
+                                            HorizontalAlignment="Center">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.48" Color="#2FB7E8"/>
+                                        </Border.Effect>
+                                        <TextBlock Text="H"
+                                                   Foreground="#2FB7E8"
+                                                   FontSize="46"
+                                                   FontWeight="Black"
+                                                   FontFamily="Segoe UI Semibold"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+
+                                    <TextBlock Text="HaxStudio"
+                                               Foreground="#F2FBFF"
+                                               FontSize="21"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,15,0,0"/>
+
+                                    <TextBlock Text="Version 1.0.0"
+                                               Foreground="#6E7A89"
+                                               FontSize="12"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,5,0,0"/>
+                                </StackPanel>
+
+                                <TextBlock Text="Private build"
+                                           Foreground="#536171"
+                                           FontSize="11"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Bottom"
+                                           Margin="0,0,0,13"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="1" Background="#263241"/>
+
+                        <Grid Grid.Column="2" Margin="24,22,24,20">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0">
+                                <TextBlock Text="Modern HaxBall Stadium Editor"
+                                           Foreground="#E8EDF4"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"/>
+
+                                <TextBlock Text="Preparing editor workspace"
+                                           Foreground="#8D9AAB"
+                                           FontSize="11.5"
+                                           Margin="0,5,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                                <TextBlock Text="Loading modules"
+                                           Foreground="#657181"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,8"/>
+
+                                <TextBlock x:Name="SplashStatusText"
+                                           Text="Starting HaxStudio..."
+                                           Foreground="#DDE7F3"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,10"/>
+
+                                <TextBlock x:Name="SplashDetailText"
+                                           Text="Initializing application shell"
+                                           Foreground="#93A0B1"
+                                           FontSize="12"
+                                           TextWrapping="Wrap"
+                                           MinHeight="30"
+                                           Margin="0,0,0,13"/>
+
+                                <ProgressBar x:Name="SplashProgressBar"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="0"
+                                             Width="270"
+                                             Height="5"
+                                             HorizontalAlignment="Left"
+                                             Foreground="#2FB7E8"
+                                             Background="#242832"
+                                             BorderThickness="0"/>
+
+                                <TextBlock x:Name="SplashPercentText"
+                                           Text="0%"
+                                           Foreground="#657181"
+                                           FontSize="11"
+                                           HorizontalAlignment="Left"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+
+                            <Grid Grid.Row="2">
+                                <TextBlock Text="Loading HaxStudio. Please wait."
+                                           Foreground="#536171"
+                                           FontSize="11"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Bottom"/>
+
+                                <TextBlock Text="WPF / C#"
+                                           Foreground="#536171"
+                                           FontSize="11"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Bottom"/>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Grid x:Name="SplashFinalBrandOverlay"
+                      Opacity="0"
+                      IsHitTestVisible="False"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center">
+                    <Grid.RenderTransform>
+                        <ScaleTransform x:Name="SplashFinalBrandScale" ScaleX="0.92" ScaleY="0.92"/>
+                    </Grid.RenderTransform>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border Width="96"
+                                Height="96"
+                                CornerRadius="23"
+                                Background="#101821"
+                                BorderBrush="#2FB7E8"
+                                BorderThickness="2"
+                                HorizontalAlignment="Center">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="26" ShadowDepth="0" Opacity="0.58" Color="#2FB7E8"/>
+                            </Border.Effect>
+                            <TextBlock Text="H"
+                                       Foreground="#2FB7E8"
+                                       FontSize="56"
+                                       FontWeight="Black"
+                                       FontFamily="Segoe UI Semibold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+
+                        <TextBlock Text="HaxStudio"
+                                   Foreground="#F2FBFF"
+                                   FontSize="34"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,18,0,0"/>
+
+                        <TextBlock Text="Modern HaxBall Stadium Editor"
+                                   Foreground="#8D9AAB"
+                                   FontSize="13"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,7,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>
