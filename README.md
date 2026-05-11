@@ -4,7 +4,13 @@
 
 Built with **WPF / C#**, HaxStudio focuses on a clean dark UI, visual map editing, safe JSON editing, validation, and a professional workflow for stadium creators.
 
-> Status: Private source / v1.0 preparation
+> Status: Public release / v1.0.0
+
+---
+
+## Preview
+
+![HaxStudio Splash Screen](assets/screenshots/splash-screen.png)
 
 ---
 
@@ -15,6 +21,34 @@ HaxStudio is designed to make HaxBall stadium editing easier, safer, and more vi
 Instead of editing `.hbs` JSON files manually, users can open a stadium file, inspect objects, edit the map visually, adjust properties, validate the stadium, and save the result back as a valid `.hbs` file.
 
 The project aims to provide a modern editor experience while preserving important HaxBall stadium data from real maps.
+
+---
+
+## Screenshots
+
+### Splash Screen
+
+![Splash Screen](assets/screenshots/splash-screen.png)
+
+### Main Editor
+
+![Main Editor](assets/screenshots/main-editor.png)
+
+### JSON Editor
+
+![JSON Editor](assets/screenshots/json-editor.png)
+
+### Settings
+
+![Settings](assets/screenshots/settings.png)
+
+### Layers Panel
+
+![Layers Panel](assets/screenshots/layers-panel.png)
+
+### Validator
+
+![Validator](assets/screenshots/validator.png)
 
 ---
 
@@ -31,11 +65,7 @@ The project aims to provide a modern editor experience while preserving importan
 - Invalid JSON prevents unsafe save
 - Preserves important existing stadium data from real maps
 
----
-
 ### Supported Stadium Objects
-
-HaxStudio currently supports editing and visualizing the main HaxBall stadium object types:
 
 - Vertexes
 - Segments
@@ -45,8 +75,6 @@ HaxStudio currently supports editing and visualizing the main HaxBall stadium ob
 - Red spawn points
 - Blue spawn points
 - Joints
-
----
 
 ### Preserved HaxBall Data
 
@@ -64,20 +92,13 @@ Preserved data includes:
 - Object extension data
 - Unknown / extra JSON fields where supported
 
-This is important because real `.hbs` maps often contain advanced physics, collision, trait, and storage data that should not be lost during editing.
-
 ---
 
-## Viewport Editor
-
-The viewport is the main visual editing area of HaxStudio.
-
-### Viewport Features
+## Editor Tools
 
 - Modern visual stadium viewport
 - HaxPuck-inspired grass background
-- Zoom support
-- Pan support
+- Zoom and pan support
 - Reset viewport
 - Grid display option
 - Snap to Grid
@@ -86,12 +107,7 @@ The viewport is the main visual editing area of HaxStudio.
 - Optional invisible object display
 - Optional plane display
 - Optional background stripe display
-- Right panel resize support
-
-### Segment Rendering
-
-- Segment line rendering
-- Segment curve rendering
+- Segment line and curve rendering
 - HaxBall-style arc visualization
 - Curve handle editing
 - Overlapping segment selection by repeated clicking
@@ -99,10 +115,6 @@ The viewport is the main visual editing area of HaxStudio.
 ---
 
 ## Selection System
-
-HaxStudio includes a visual selection system designed for practical map editing.
-
-### Selection Features
 
 - Click selection
 - Ctrl + click multi-selection
@@ -119,11 +131,7 @@ HaxStudio includes a visual selection system designed for practical map editing.
 
 ## Inspector
 
-The Inspector panel shows and edits properties for the currently selected object.
-
-### Smart Inspector
-
-The Inspector changes based on the selected object type.
+The Inspector panel shows and edits properties for the selected object.
 
 Supported inspector sections include:
 
@@ -137,41 +145,17 @@ Supported inspector sections include:
 - Multi-select common properties
 - Selection information panel
 
-### Object Properties
-
-Depending on the selected object, HaxStudio can edit values such as:
-
-- Position
-- Radius
-- Color
-- Curve
-- Team
-- Plane normal / distance
-- Collision group
-- Collision mask
-- Trait
-- Visibility
-- Bounce coefficient
-- Inverse mass
-- Damping
-- Speed
-- Gravity
+Editable values include position, radius, color, curve, team, plane normal / distance, collision group, collision mask, trait, visibility, bounce coefficient, inverse mass, damping, speed, and gravity.
 
 ---
 
 ## Layers Panel
-
-The Layers panel helps users manage objects in larger stadiums.
-
-### Layers Features
 
 - Search box
 - Type filter
 - Selected object highlight
 - Double click object to focus in viewport
 - Right click context menu
-- Select object
-- Focus object in viewport
 - Duplicate object
 - Delete object
 - Hide / Show object
@@ -185,39 +169,13 @@ The Layers panel helps users manage objects in larger stadiums.
 
 HaxStudio includes a stadium validator to help prevent broken stadium files.
 
-### Validator Features
-
-- Stadium validation panel
-- Validate button
-- Error / warning result list
-- Optional save warning before saving invalid stadiums
-- Double click validation result to focus the related object in the viewport
-
-### Validation Checks
-
-The validator can detect issues such as:
-
-- Invalid segment vertex indexes
-- Invalid joint disc indexes
-- Invalid disc radius values
-- Invalid vertex coordinates
-- Invalid disc coordinates
-- Invalid spawn point coordinates
-- Invalid goal points
-- Invalid plane normal / distance values
-- Invalid color values
-- Invalid or unusual collision groups
-- Invalid or unusual collision masks
-- Invalid stadium width / height
-- Invalid background width / height
+The validator can detect invalid segment vertex indexes, invalid joint disc indexes, invalid disc radius values, invalid coordinates, invalid goal points, invalid plane normal / distance values, invalid color values, unusual collision groups, unusual collision masks, and invalid stadium or background dimensions.
 
 ---
 
 ## JSON Editor
 
 HaxStudio includes a built-in JSON editor for advanced editing.
-
-### JSON Features
 
 - View current stadium JSON
 - Edit JSON manually
@@ -227,35 +185,13 @@ HaxStudio includes a built-in JSON editor for advanced editing.
 - JSON edits are applied before saving
 - Invalid JSON prevents unsafe saving
 
-This allows both visual editing and manual low-level `.hbs` editing in the same application.
-
----
-
-## Workflow Tools
-
-HaxStudio includes common editing tools for a smoother workflow.
-
-- Undo
-- Redo
-- Copy
-- Paste
-- Duplicate
-- Delete
-- Snap to Grid
-- Resizable right panel
-- Custom dark title bar
-- Dark modal settings window
-- Tool selection highlight
-- Tools menu check marks
-- Custom application icon support
-
 ---
 
 ## Settings / Preferences
 
 HaxStudio includes an in-app Settings window.
 
-### Settings Categories
+Settings categories:
 
 - Hotkeys
 - Preferences
@@ -263,24 +199,6 @@ HaxStudio includes an in-app Settings window.
 - Language
 - Check for Updates
 - About HaxStudio
-
-### Preferences
-
-Preferences include viewport and editor behavior options such as:
-
-- Show Grid
-- Show Vertexes
-- Show Planes
-- Show Background Stripes
-- Show Invisible Objects in Editor
-- Vertex Size
-- Save validation warning toggle
-
-### Themes
-
-The current UI uses a modern dark theme with blue accent colors.
-
-Future versions may include additional theme presets.
 
 ---
 
@@ -325,21 +243,6 @@ Future versions may include additional theme presets.
 
 ---
 
-## Planned v1.0 Polish
-
-Before the first stable release, the following polish items are planned:
-
-- GitHub update check support
-- Loading / splash screen
-- Release packaging
-- Portable build
-- Better installer support
-- More UI polish
-- More validation rules
-- More documentation
-
----
-
 ## Technology
 
 - Language: C#
@@ -350,9 +253,19 @@ Before the first stable release, the following polish items are planned:
 
 ---
 
-## Version
+## Roadmap
 
-Current development target:
+### v1.1.0
+
+- Config system
+- Installer support
+- Persistent user settings
+- Improved update workflow
+
+---
+
+## Version
 
 ```text
 v1.0.0
+```
