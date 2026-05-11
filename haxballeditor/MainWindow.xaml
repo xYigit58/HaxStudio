@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="HaxStudio"
         Height="880"
         Width="1520"
@@ -38,6 +39,100 @@
         <SolidColorBrush x:Key="DangerBorder" Color="#714444"/>
 
         <DropShadowEffect x:Key="SoftShadow" BlurRadius="12" ShadowDepth="2" Opacity="0.22" Color="#000000"/>
+
+        <Style x:Key="ToolbarIcon" TargetType="{x:Type materialDesign:PackIcon}">
+            <Setter Property="Width" Value="15"/>
+            <Setter Property="Height" Value="15"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+
+        <Style x:Key="MenuIcon" TargetType="{x:Type materialDesign:PackIcon}">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="WindowTitleIcon" TargetType="{x:Type materialDesign:PackIcon}">
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="Expander">
+            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+            <Setter Property="Background" Value="{StaticResource PanelDark}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderSoft}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <DockPanel Background="{TemplateBinding Background}">
+                            <ToggleButton x:Name="HeaderSite"
+                                          DockPanel.Dock="Top"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Padding="0,6,0,6"
+                                          Foreground="{StaticResource TextMain}"
+                                          HorizontalContentAlignment="Stretch"
+                                          Cursor="Hand">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="18"
+                                                        Height="18"
+                                                        CornerRadius="9"
+                                                        Background="#E8EDF4"
+                                                        Margin="0,0,6,0">
+                                                    <TextBlock x:Name="Arrow"
+                                                               Text="v"
+                                                               Foreground="#1C1F24"
+                                                               FontSize="11"
+                                                               FontWeight="Bold"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ContentPresenter VerticalAlignment="Center"
+                                                                  RecognizesAccessKey="True"
+                                                                  TextElement.Foreground="{StaticResource TextMain}"
+                                                                  TextElement.FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="False">
+                                                <Setter TargetName="Arrow" Property="Text" Value=">"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Arrow" Property="Foreground" Value="#0E639C"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <TextBlock Text="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}"
+                                           Foreground="{StaticResource TextMain}"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ExpandSite"
+                                              DockPanel.Dock="Bottom"
+                                              Visibility="Collapsed"
+                                              Margin="0,0,0,4"/>
+                        </DockPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <Style TargetType="Menu">
             <Setter Property="Background" Value="#0F1116"/>
@@ -299,6 +394,31 @@
             <Setter Property="Margin" Value="3,2"/>
             <Setter Property="Padding" Value="10,3"/>
             <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <Style x:Key="ViewportMiniButton" TargetType="Button" BasedOn="{StaticResource ModernButtonBase}">
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Margin" Value="3,0"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Background" Value="#161B22"/>
+            <Setter Property="BorderBrush" Value="#303845"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
+        </Style>
+
+        <Style x:Key="ViewportMiniButtonActive" TargetType="Button" BasedOn="{StaticResource ViewportMiniButton}">
+            <Setter Property="Background" Value="#123A50"/>
+            <Setter Property="BorderBrush" Value="#2FB7E8"/>
+            <Setter Property="Foreground" Value="#F2FBFF"/>
+        </Style>
+
+        <Style x:Key="ViewportMiniIcon" TargetType="{x:Type materialDesign:PackIcon}">
+            <Setter Property="Width" Value="13"/>
+            <Setter Property="Height" Value="13"/>
+            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,5,0"/>
         </Style>
 
         <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource ModernButtonBase}">
@@ -589,25 +709,79 @@
             <Setter Property="BorderBrush" Value="#333A46"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="4"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBox">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="ScrollViewer"
+                                          Background="{TemplateBinding Background}"
+                                          Focusable="False"
+                                          Padding="0">
+                                <ItemsPresenter/>
+                            </ScrollViewer>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemRoot"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemRoot" Property="Background" Value="#202733"/>
+                                <Setter TargetName="ItemRoot" Property="BorderBrush" Value="#334155"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemRoot" Property="Background" Value="#0E639C"/>
+                                <Setter TargetName="ItemRoot" Property="BorderBrush" Value="#2FB7E8"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
             <Setter Property="Margin" Value="0,4,10,0"/>
-        </Style>
-
-        <Style TargetType="Expander">
-            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
-            <Setter Property="Background" Value="#191D23"/>
-            <Setter Property="BorderBrush" Value="#2E3540"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Margin" Value="0,0,0,9"/>
-            <Setter Property="Padding" Value="9"/>
         </Style>
 
 
@@ -770,26 +944,295 @@
                     </StackPanel>
 
                     <Menu Background="#0B0D10" Height="36" VerticalAlignment="Stretch" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <MenuItem Header="File">
-                            <MenuItem Header="New Stadium" Click="NewButton_Click"/>
-                            <MenuItem Header="Open .hbs" Click="OpenButton_Click"/>
-                            <MenuItem Header="Save" Click="SaveButton_Click"/>
-                            <MenuItem Header="Save As" Click="SaveAsButton_Click"/>
+                        <MenuItem>
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FileDocumentOutline" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                    <TextBlock Text="File"/>
+                                </StackPanel>
+                            </MenuItem.Header>
+                            <MenuItem Header="New Stadium" Click="NewButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="FilePlus" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Open .hbs" Click="OpenButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="FolderOpen" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Save" Click="SaveButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ContentSave" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Save As" Click="SaveAsButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ContentSaveEdit" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="AutoSave Backup Now" Click="AutoSaveNowButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ContentSaveOutline" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                             <Separator/>
-                            <MenuItem Header="Exit" Click="ExitButton_Click"/>
+                            <MenuItem Header="Exit" Click="ExitButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ExitToApp" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                         </MenuItem>
-                        <MenuItem Header="Edit">
-                            <MenuItem Header="Undo" Click="UndoButton_Click"/>
-                            <MenuItem Header="Redo" Click="RedoButton_Click"/>
+                        <MenuItem>
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Pencil" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Edit"/>
+                                </StackPanel>
+                            </MenuItem.Header>
+                            <MenuItem Header="Undo" Click="UndoButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="Undo" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Redo" Click="RedoButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="Redo" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                             <Separator/>
-                            <MenuItem Header="Copy" Click="CopyButton_Click"/>
-                            <MenuItem Header="Paste" Click="PasteButton_Click"/>
-                            <MenuItem Header="Duplicate" Click="DuplicateButton_Click"/>
+                            <MenuItem Header="Copy" Click="CopyButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ContentCopy" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Paste" Click="PasteButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ContentPaste" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Duplicate" Click="DuplicateButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ContentDuplicate" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="Mirror Selected Horizontally" Click="MirrorSelectedHorizontallyButton_Click" InputGestureText="Ctrl+Shift+H">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="Mirror" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Mirror Selected Vertically" Click="MirrorSelectedVerticallyButton_Click" InputGestureText="Ctrl+Shift+V">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="FlipVertical" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                         </MenuItem>
-                        <MenuItem Header="View">
-                            <MenuItem x:Name="SnapToGridMenuItem" Header="Snap to Grid" IsCheckable="True" Click="SnapToGridButton_Click"/>
+                        <MenuItem>
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="EyeOutline" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                    <TextBlock Text="View"/>
+                                </StackPanel>
+                            </MenuItem.Header>
+                            <MenuItem x:Name="SnapToGridMenuItem" Header="Snap to Grid" IsCheckable="True" Click="SnapToGridButton_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="Grid" Style="{StaticResource MenuIcon}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem>
+                                <MenuItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="ViewDashboardOutline" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Panels"/>
+                                    </StackPanel>
+                                </MenuItem.Header>
+                                <MenuItem>
+                                    <MenuItem.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Tune" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Inspector"/>
+                                        </StackPanel>
+                                    </MenuItem.Header>
+                                    <MenuItem Header="Dock Left" Click="ViewInspectorDockLeftMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockLeft" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Right" Click="ViewInspectorDockRightMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockRight" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Bottom" Click="ViewInspectorDockBottomMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockBottom" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Header="Float" Click="ViewInspectorFloatMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="OpenInNew" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Hide" Click="ViewInspectorHideMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="EyeOffOutline" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </MenuItem>
+                                <MenuItem>
+                                    <MenuItem.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Layers" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Layers"/>
+                                        </StackPanel>
+                                    </MenuItem.Header>
+                                    <MenuItem Header="Dock Left" Click="ViewLayersDockLeftMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockLeft" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Right" Click="ViewLayersDockRightMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockRight" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Bottom" Click="ViewLayersDockBottomMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockBottom" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Header="Float" Click="ViewLayersFloatMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="OpenInNew" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Hide" Click="ViewLayersHideMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="EyeOffOutline" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </MenuItem>
+                                <MenuItem>
+                                    <MenuItem.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AlertCircleOutline" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Validator"/>
+                                        </StackPanel>
+                                    </MenuItem.Header>
+                                    <MenuItem Header="Dock Left" Click="ViewValidatorDockLeftMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockLeft" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Right" Click="ViewValidatorDockRightMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockRight" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Bottom" Click="ViewValidatorDockBottomMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockBottom" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Header="Float" Click="ViewValidatorFloatMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="OpenInNew" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Hide" Click="ViewValidatorHideMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="EyeOffOutline" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </MenuItem>
+                                <MenuItem>
+                                    <MenuItem.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="CodeJson" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                            <TextBlock Text="JSON"/>
+                                        </StackPanel>
+                                    </MenuItem.Header>
+                                    <MenuItem Header="Dock Left" Click="ViewJsonDockLeftMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockLeft" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Right" Click="ViewJsonDockRightMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockRight" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Bottom" Click="ViewJsonDockBottomMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockBottom" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Header="Float" Click="ViewJsonFloatMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="OpenInNew" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Hide" Click="ViewJsonHideMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="EyeOffOutline" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </MenuItem>
+                                <MenuItem>
+                                    <MenuItem.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="History" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                            <TextBlock Text="History"/>
+                                        </StackPanel>
+                                    </MenuItem.Header>
+                                    <MenuItem Header="Dock Left" Click="ViewHistoryDockLeftMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockLeft" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Right" Click="ViewHistoryDockRightMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockRight" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dock Bottom" Click="ViewHistoryDockBottomMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="DockBottom" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Header="Float" Click="ViewHistoryFloatMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="OpenInNew" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Hide" Click="ViewHistoryHideMenuItem_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="EyeOffOutline" Style="{StaticResource MenuIcon}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Hide All Panels" Click="ViewHideAllPanelsMenuItem_Click">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="EyeOffOutline" Style="{StaticResource MenuIcon}"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </MenuItem>
                         </MenuItem>
-                        <MenuItem Header="Tools">
+                        <MenuItem>
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Tools" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Tools"/>
+                                </StackPanel>
+                            </MenuItem.Header>
                             <MenuItem x:Name="SelectToolMenuItem" Header="Select" InputGestureText="Ctrl+L" IsCheckable="True" Click="SelectTool_Click"/>
                             <MenuItem x:Name="AddVertexToolMenuItem" Header="Add Vertex" InputGestureText="Ctrl+E" IsCheckable="True" Click="AddVertexButton_Click"/>
                             <MenuItem x:Name="AddSegmentToolMenuItem" Header="Add Segment" InputGestureText="Ctrl+T" IsCheckable="True" Click="AddSegmentButton_Click"/>
@@ -799,7 +1242,14 @@
                             <MenuItem x:Name="AddRedSpawnToolMenuItem" Header="Add Red Spawn" InputGestureText="Ctrl+R" IsCheckable="True" Click="AddRedSpawnButton_Click"/>
                             <MenuItem x:Name="AddBlueSpawnToolMenuItem" Header="Add Blue Spawn" InputGestureText="Ctrl+B" IsCheckable="True" Click="AddBlueSpawnButton_Click"/>
                         </MenuItem>
-                        <MenuItem Header="Settings" Click="SettingsMenu_Click"/>
+                        <MenuItem Click="SettingsMenu_Click">
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Cog" Style="{StaticResource MenuIcon}" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Settings"/>
+                                </StackPanel>
+                            </MenuItem.Header>
+                        </MenuItem>
                     </Menu>
                 </StackPanel>
 
@@ -807,8 +1257,12 @@
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button Content="-" Style="{StaticResource WindowControlButton}" Click="MinimizeWindowButton_Click" ToolTip="Minimize"/>
-                    <Button x:Name="MaximizeRestoreWindowButton" Content="[]" Style="{StaticResource WindowControlButton}" Click="MaximizeRestoreWindowButton_Click" ToolTip="Maximize / Restore"/>
-                    <Button Content="X" Style="{StaticResource CloseWindowButton}" Click="CloseWindowButton_Click" ToolTip="Close"/>
+                    <Button x:Name="MaximizeRestoreWindowButton" Style="{StaticResource WindowControlButton}" Click="MaximizeRestoreWindowButton_Click" ToolTip="Maximize / Restore">
+                        <materialDesign:PackIcon Kind="WindowMaximize" Style="{StaticResource WindowTitleIcon}"/>
+                    </Button>
+                    <Button Style="{StaticResource CloseWindowButton}" Click="CloseWindowButton_Click" ToolTip="Close">
+                        <materialDesign:PackIcon Kind="WindowClose" Style="{StaticResource WindowTitleIcon}"/>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -816,23 +1270,82 @@
         <Border Grid.Row="1" Background="{StaticResource TopBarBg}" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1">
             <DockPanel LastChildFill="False" Margin="12,9">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                    <Button Content="New" Style="{StaticResource TopButton}" Click="NewButton_Click"/>
-                    <Button Content="Open" Style="{StaticResource TopButton}" Click="OpenButton_Click"/>
-                    <Button Content="Save" Style="{StaticResource TopButton}" Click="SaveButton_Click"/>
-                    <Button Content="Save As" Style="{StaticResource TopButton}" Click="SaveAsButton_Click"/>
-                    <Button Content="Validate" Style="{StaticResource TopButton}" Click="ValidateButton_Click" ToolTip="Validate stadium data"/>
+                    <Button Style="{StaticResource TopButton}" Click="NewButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FilePlus" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="New"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource TopButton}" Click="OpenButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FolderOpen" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Open"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource TopButton}" Click="SaveButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ContentSave" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Save"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource TopButton}" Click="SaveAsButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ContentSaveEdit" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Save As"/>
+                        </StackPanel>
+                    </Button>
                     <Rectangle Width="1" Height="24" Fill="#3A3E44" Margin="10,0"/>
                     <CheckBox x:Name="SnapToGridCheckBox" Content="Snap" VerticalAlignment="Center" Margin="2,0,5,0" Checked="SnapToGridCheckBox_Changed" Unchecked="SnapToGridCheckBox_Changed" ToolTip="Snap moved/created points to grid"/>
                     <TextBox x:Name="SnapGridSizeTextBox" Width="46" Height="30" Text="25" Style="{StaticResource InputTextBox}" ToolTip="Snap grid size" LostFocus="SnapGridSizeTextBox_LostFocus" KeyDown="SnapGridSizeTextBox_KeyDown"/>
                     <Rectangle Width="1" Height="24" Fill="#3A3E44" Margin="10,0"/>
-                    <Button x:Name="SelectToolButton" Content="Select" ToolTip="Select tool (Ctrl+L)" Style="{StaticResource PrimaryTopButton}" Click="SelectTool_Click"/>
-                    <Button x:Name="AddVertexToolButton" Content="Vertex" ToolTip="Add Vertex (Ctrl+E)" Style="{StaticResource TopButton}" Click="AddVertexButton_Click"/>
-                    <Button x:Name="AddSegmentToolButton" Content="Segment" ToolTip="Add Segment (Ctrl+T)" Style="{StaticResource TopButton}" Click="AddSegmentButton_Click"/>
-                    <Button x:Name="AddDiscToolButton" Content="Disc" ToolTip="Add Disc (Ctrl+I)" Style="{StaticResource TopButton}" Click="AddDiscButton_Click"/>
-                    <Button x:Name="AddGoalToolButton" Content="Goal" ToolTip="Add Goal (Ctrl+G)" Style="{StaticResource TopButton}" Click="AddGoalButton_Click"/>
-                    <Button x:Name="AddPlaneToolButton" Content="Plane" ToolTip="Add Plane (Ctrl+P)" Style="{StaticResource TopButton}" Click="AddPlaneButton_Click"/>
-                    <Button x:Name="AddRedSpawnToolButton" Content="Red Spawn" ToolTip="Add Red Spawn (Ctrl+R)" Style="{StaticResource TopButton}" Click="AddRedSpawnButton_Click"/>
-                    <Button x:Name="AddBlueSpawnToolButton" Content="Blue Spawn" ToolTip="Add Blue Spawn (Ctrl+B)" Style="{StaticResource TopButton}" Click="AddBlueSpawnButton_Click"/>
+                    <Button x:Name="SelectToolButton" Style="{StaticResource PrimaryTopButton}" Click="SelectTool_Click" ToolTip="Select tool (Ctrl+L)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CursorDefaultClick" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Select"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="AddVertexToolButton" Style="{StaticResource TopButton}" Click="AddVertexButton_Click" ToolTip="Add Vertex (Ctrl+E)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="VectorPoint" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Vertex"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="AddSegmentToolButton" Style="{StaticResource TopButton}" Click="AddSegmentButton_Click" ToolTip="Add Segment (Ctrl+T)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="VectorLine" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Segment"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="AddDiscToolButton" Style="{StaticResource TopButton}" Click="AddDiscButton_Click" ToolTip="Add Disc (Ctrl+I)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CircleOutline" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Disc"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="AddGoalToolButton" Style="{StaticResource TopButton}" Click="AddGoalButton_Click" ToolTip="Add Goal (Ctrl+G)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Soccer" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Goal"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="AddPlaneToolButton" Style="{StaticResource TopButton}" Click="AddPlaneButton_Click" ToolTip="Add Plane (Ctrl+P)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AxisArrow" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Plane"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="AddRedSpawnToolButton" Style="{StaticResource TopButton}" Click="AddRedSpawnButton_Click" ToolTip="Add Red Spawn (Ctrl+R)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AccountArrowRight" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Red Spawn"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="AddBlueSpawnToolButton" Style="{StaticResource TopButton}" Click="AddBlueSpawnButton_Click" ToolTip="Add Blue Spawn (Ctrl+B)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AccountArrowLeft" Style="{StaticResource ToolbarIcon}"/>
+                            <TextBlock Text="Blue Spawn"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
                 <Border DockPanel.Dock="Right" Background="#12151A" BorderBrush="#303845" BorderThickness="1" Padding="12,5" CornerRadius="10">
                     <TextBlock Text="Ctrl+Z/Y  -  Ctrl+C/V/D  -  Tools: Ctrl+L/E/T/I/G/P/R/B"
@@ -843,46 +1356,24 @@
 
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="580"/>
-                <ColumnDefinition Width="6"/>
-                <ColumnDefinition Width="420" MinWidth="320" MaxWidth="820"/>
+                <ColumnDefinition x:Name="LeftPanelColumn" Width="0" MinWidth="0" MaxWidth="820"/>
+                <ColumnDefinition x:Name="LeftPanelSplitterColumn" Width="0"/>
+                <ColumnDefinition x:Name="ViewportColumn" Width="*" MinWidth="580"/>
+                <ColumnDefinition x:Name="RightPanelSplitterColumn" Width="0"/>
+                <ColumnDefinition x:Name="RightPanelColumn" Width="0" MinWidth="0" MaxWidth="820"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Background="#111" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,1,0" ClipToBounds="True">
-                <Grid ClipToBounds="True">
-                    <Border Height="36" VerticalAlignment="Top" Background="#1C1D20" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1" Panel.ZIndex="5">
-                        <DockPanel Margin="10,0">
-                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                                <TextBlock Text="Viewport" Foreground="{StaticResource TextMain}" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                <Border Background="{StaticResource AccentSoft}" BorderBrush="#245B76" BorderThickness="1" Padding="7,2" CornerRadius="3" Margin="12,0,0,0">
-                                    <TextBlock x:Name="ViewportInfoText" Text="Zoom: 100% | Pan: 0, 0" Foreground="#BBDCEE" FontSize="12"/>
-                                </Border>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <TextBlock x:Name="CurrentToolText" Text="Select" Visibility="Collapsed"/>
-                                <TextBlock x:Name="SegmentFirstVertexText" Text="None" Visibility="Collapsed"/>
-                                <TextBlock x:Name="MousePositionText" Text="HaxBall X: 0  Y: 0" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-
-                    <Border Margin="0,36,0,0" Background="#3B2E29" ClipToBounds="True">
-                        <Canvas x:Name="MapCanvas"
-                                Background="#3B2E29"
-                                ClipToBounds="True"
-                                Focusable="True"
-                                MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown"
-                                MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp"
-                                MouseMove="MapCanvas_MouseMove"
-                                MouseWheel="MapCanvas_MouseWheel"
-                                MouseDown="MapCanvas_MouseDown"
-                                MouseUp="MapCanvas_MouseUp"
-                                SizeChanged="MapCanvas_SizeChanged"/>
-                    </Border>
-                </Grid>
+            <Border x:Name="LeftPanelHost"
+                    Grid.Column="0"
+                    Background="{StaticResource PanelDark}"
+                    BorderBrush="{StaticResource BorderColor}"
+                    BorderThickness="0,0,1,0"
+                    Visibility="Collapsed">
+                <TabControl x:Name="LeftPanelTabControl"/>
             </Border>
 
-            <GridSplitter Grid.Column="1"
+            <GridSplitter x:Name="LeftPanelGridSplitter"
+                          Grid.Column="1"
                           Width="6"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
@@ -893,11 +1384,171 @@
                           ResizeBehavior="PreviousAndNext"
                           ShowsPreview="True"
                           Cursor="SizeWE"
+                          Visibility="Collapsed"
+                          ToolTip="Drag to resize the left panel"/>
+
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition x:Name="ViewportRow" Height="*" MinHeight="320"/>
+                    <RowDefinition x:Name="BottomPanelSplitterRow" Height="0"/>
+                    <RowDefinition x:Name="BottomPanelRow" Height="0" MinHeight="0" MaxHeight="520"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="#111" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,1,0" ClipToBounds="True">
+                    <Grid ClipToBounds="True">
+                        <Border Height="36" VerticalAlignment="Top" Background="#1C1D20" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1" Panel.ZIndex="5">
+                            <DockPanel Margin="10,0">
+                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                                    <TextBlock Text="Viewport" Foreground="{StaticResource TextMain}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <Border Background="{StaticResource AccentSoft}" BorderBrush="#245B76" BorderThickness="1" Padding="7,2" CornerRadius="3" Margin="12,0,0,0">
+                                        <TextBlock x:Name="ViewportInfoText" Text="Zoom: 100% | Pan: 0, 0" Foreground="#BBDCEE" FontSize="12"/>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <TextBlock x:Name="CurrentToolText" Text="Select" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="SegmentFirstVertexText" Text="None" Visibility="Collapsed"/>
+
+                                    <Button x:Name="ViewportGridButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportGridButton_Click" ToolTip="Show / hide viewport grid">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Grid" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Grid"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="ViewportSnapButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportSnapButton_Click" ToolTip="Toggle snap to grid">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Magnet" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Snap"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="ViewportVertexesButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportVertexesButton_Click" ToolTip="Show / hide vertex points">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="VectorPoint" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Vertexes"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="ViewportSegmentsButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportSegmentsButton_Click" ToolTip="Show / hide segments">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="VectorLine" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Segments"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="ViewportDiscsButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportDiscsButton_Click" ToolTip="Show / hide discs">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="CircleOutline" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Discs"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="ViewportPlanesButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportPlanesButton_Click" ToolTip="Show / hide planes">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AxisArrow" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Planes"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="ViewportInvisibleButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportInvisibleButton_Click" ToolTip="Show / hide invisible objects in editor">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="EyeOutline" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Invisible"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="ViewportMirrorButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportMirrorButton_Click" ToolTip="Mirror Mode: automatically create a mirrored copy when placing a new object">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Mirror" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Mirror"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="ViewportResetButton" Style="{StaticResource ViewportMiniButton}" Click="ViewportResetButton_Click" ToolTip="Reset viewport">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="FitToScreenOutline" Style="{StaticResource ViewportMiniIcon}"/>
+                                            <TextBlock Text="Reset"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Rectangle Width="1" Height="20" Fill="#343A45" Margin="7,0"/>
+                                    <TextBlock x:Name="MousePositionText" Text="HaxBall X: 0  Y: 0" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Margin="0,36,0,0" Background="#3B2E29" ClipToBounds="True">
+                            <Canvas x:Name="MapCanvas"
+                                Background="#3B2E29"
+                                ClipToBounds="True"
+                                Focusable="True"
+                                MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown"
+                                MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp"
+                                MouseMove="MapCanvas_MouseMove"
+                                MouseWheel="MapCanvas_MouseWheel"
+                                MouseDown="MapCanvas_MouseDown"
+                                MouseUp="MapCanvas_MouseUp"
+                                SizeChanged="MapCanvas_SizeChanged"/>
+                        </Border>
+                    </Grid>
+                </Border>
+
+
+                <GridSplitter x:Name="BottomPanelGridSplitter"
+                              Grid.Row="1"
+                              Height="6"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Background="#242A33"
+                              BorderBrush="#3A4350"
+                              BorderThickness="0,1"
+                              ResizeDirection="Rows"
+                              ResizeBehavior="PreviousAndNext"
+                              ShowsPreview="True"
+                              Cursor="SizeNS"
+                              Visibility="Collapsed"
+                              ToolTip="Drag to resize the bottom panel"/>
+
+                <Border x:Name="BottomPanelHost"
+                        Grid.Row="2"
+                        Background="{StaticResource PanelDark}"
+                        BorderBrush="{StaticResource BorderColor}"
+                        BorderThickness="0,1,0,0"
+                        Visibility="Collapsed">
+                    <TabControl x:Name="BottomPanelTabControl"/>
+                </Border>
+            </Grid>
+
+            <GridSplitter x:Name="RightPanelGridSplitter"
+                          Grid.Column="3"
+                          Width="6"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Background="#242A33"
+                          BorderBrush="#3A4350"
+                          BorderThickness="1,0"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          ShowsPreview="True"
+                          Cursor="SizeWE"
+                          Visibility="Collapsed"
                           ToolTip="Drag to resize the right panel"/>
 
-            <Border Grid.Column="2" Background="{StaticResource PanelDark}">
-                <TabControl>
-                    <TabItem Header="Inspector">
+            <Border x:Name="RightPanelHost"
+                    Grid.Column="4"
+                    Background="{StaticResource PanelDark}"
+                    BorderBrush="{StaticResource BorderColor}"
+                    BorderThickness="1,0,0,0"
+                    Visibility="Collapsed">
+                <TabControl x:Name="RightPanelTabControl">
+                    <TabItem x:Name="InspectorTabItem">
+                        <TabItem.Header>
+                            <TextBlock Text="Inspector"
+                                       Tag="Inspector"
+                                       ToolTip="Double-click or drag to detach this panel"
+                                       PreviewMouseLeftButtonDown="PanelHeader_PreviewMouseLeftButtonDown"
+                                       PreviewMouseMove="PanelHeader_PreviewMouseMove"/>
+                        </TabItem.Header>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="12">
                                 <Expander x:Name="SelectionExpander" Header="Selection / Coordinates" IsExpanded="True">
@@ -1278,8 +1929,15 @@
                         </ScrollViewer>
                     </TabItem>
 
-                    <TabItem Header="Layers">
-                        <Grid Margin="10">
+                    <TabItem x:Name="LayersTabItem">
+                        <TabItem.Header>
+                            <TextBlock Text="Layers"
+                                       Tag="Layers"
+                                       ToolTip="Double-click or drag to detach this panel"
+                                       PreviewMouseLeftButtonDown="PanelHeader_PreviewMouseLeftButtonDown"
+                                       PreviewMouseMove="PanelHeader_PreviewMouseMove"/>
+                        </TabItem.Header>
+                        <Grid Margin="10" Background="{StaticResource PanelDark}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
@@ -1335,13 +1993,23 @@
                                      Grid.Row="3"
                                      FontFamily="Consolas"
                                      FontSize="12"
+                                     Background="#12151A"
+                                     Foreground="{StaticResource TextMain}"
+                                     BorderBrush="#333A46"
                                      SelectionChanged="ObjectsListBox_SelectionChanged"
                                      MouseDoubleClick="ObjectsListBox_MouseDoubleClick"/>
                         </Grid>
                     </TabItem>
 
 
-                    <TabItem Header="Validator">
+                    <TabItem x:Name="ValidatorTabItem">
+                        <TabItem.Header>
+                            <TextBlock Text="Validator"
+                                       Tag="Validator"
+                                       ToolTip="Double-click or drag to detach this panel"
+                                       PreviewMouseLeftButtonDown="PanelHeader_PreviewMouseLeftButtonDown"
+                                       PreviewMouseMove="PanelHeader_PreviewMouseMove"/>
+                        </TabItem.Header>
                         <Grid Margin="10">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -1360,7 +2028,12 @@
                                         <TextBlock x:Name="ValidationSummaryText" Text="Not validated yet." Foreground="{StaticResource TextMain}" FontWeight="SemiBold"/>
                                         <TextBlock x:Name="ValidationDetailsText" Text="Press Validate to scan the current stadium." Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,3,0,0"/>
                                     </StackPanel>
-                                    <Button DockPanel.Dock="Right" Content="Validate" Style="{StaticResource SmallButton}" Click="ValidateButton_Click"/>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource SmallButton}" Click="ValidateButton_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="ShieldCheckOutline" Width="14" Height="14" Foreground="{StaticResource TextMain}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Validate"/>
+                                        </StackPanel>
+                                    </Button>
                                 </DockPanel>
                             </Border>
 
@@ -1368,11 +2041,21 @@
                                      Grid.Row="2"
                                      FontFamily="Consolas"
                                      FontSize="12"
+                                     Background="#12151A"
+                                     Foreground="{StaticResource TextMain}"
+                                     BorderBrush="#333A46"
                                      MouseDoubleClick="ValidationResultsListBox_MouseDoubleClick"/>
                         </Grid>
                     </TabItem>
 
-                    <TabItem Header="JSON">
+                    <TabItem x:Name="JsonTabItem">
+                        <TabItem.Header>
+                            <TextBlock Text="JSON"
+                                       Tag="JSON"
+                                       ToolTip="Double-click or drag to detach this panel"
+                                       PreviewMouseLeftButtonDown="PanelHeader_PreviewMouseLeftButtonDown"
+                                       PreviewMouseMove="PanelHeader_PreviewMouseMove"/>
+                        </TabItem.Header>
                         <Grid Background="#1A1B1E">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="42"/>
@@ -1407,6 +2090,63 @@
                             </Border>
                         </Grid>
                     </TabItem>
+                    <TabItem x:Name="HistoryTabItem">
+                        <TabItem.Header>
+                            <TextBlock Text="History"
+                                       Tag="History"
+                                       ToolTip="Double-click or drag to detach this panel"
+                                       PreviewMouseLeftButtonDown="PanelHeader_PreviewMouseLeftButtonDown"
+                                       PreviewMouseMove="PanelHeader_PreviewMouseMove"/>
+                        </TabItem.Header>
+                        <Grid Background="#1A1B1E">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="#202124" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1" Padding="10">
+                                <StackPanel>
+                                    <DockPanel LastChildFill="True">
+                                        <StackPanel DockPanel.Dock="Left" Orientation="Vertical">
+                                            <TextBlock Text="History" Foreground="{StaticResource TextMain}" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="HistorySummaryText" Text="No edit history yet." Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button x:Name="HistoryUndoButton" Style="{StaticResource SmallButton}" Click="HistoryUndoButton_Click" ToolTip="Undo last action">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Undo" Width="14" Height="14" Foreground="{StaticResource TextMain}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Undo"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button x:Name="HistoryRedoButton" Style="{StaticResource SmallButton}" Click="HistoryRedoButton_Click" ToolTip="Redo last undone action">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Redo" Width="14" Height="14" Foreground="{StaticResource TextMain}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Redo"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <Border Background="#11161D" BorderBrush="#303845" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,10,0,0">
+                                        <DockPanel>
+                                            <materialDesign:PackIcon Kind="InformationOutline" Width="16" Height="16" Foreground="{StaticResource TextMuted}" Margin="0,0,7,0" DockPanel.Dock="Left"/>
+                                            <TextBlock Text="This panel shows the current undo and redo stacks. Use Ctrl+Z / Ctrl+Y or the buttons above."
+                                                       Foreground="{StaticResource TextMuted}"
+                                                       FontSize="11"
+                                                       TextWrapping="Wrap"/>
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <ListBox x:Name="HistoryListBox"
+                                     Grid.Row="1"
+                                     FontSize="12"
+                                     Background="#12151A"
+                                     Foreground="{StaticResource TextMain}"
+                                     BorderBrush="#333A46"/>
+                        </Grid>
+                    </TabItem>
                 </TabControl>
             </Border>
         </Grid>
@@ -1418,6 +2158,8 @@
             </DockPanel>
         </Border>
 
+
+        <TabControl x:Name="HiddenPanelTabControl" Visibility="Collapsed"/>
 
         <Grid x:Name="SplashOverlay"
               Grid.RowSpan="4"

@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using MaterialDesignThemes.Wpf;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -15,6 +16,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace haxballeditor
 {
@@ -80,6 +82,8 @@ namespace haxballeditor
 
         private bool isDraggingCurveHandle = false;
         private int? draggingCurveSegmentIndex = null;
+        private DateTime lastCurveDragRenderTime = DateTime.MinValue;
+        private const int CurveDragRenderIntervalMs = 34;
 
         private string? currentFilePath = null;
         private bool isUpdatingUiFromData = false;
@@ -119,12 +123,26 @@ namespace haxballeditor
 
         private bool showViewportGrid = false;
         private bool showViewportVertexes = true;
+        private bool showViewportSegments = true;
+        private bool showViewportDiscs = true;
         private bool showViewportPlanes = true;
         private bool showViewportGrassStripes = true;
         private bool showViewportInvisibleObjects = true;
+        private bool autoMirrorPlacement = false;
         private string viewportVertexSize = "Medium";
         private bool validationWarningBeforeSaveEnabled = true;
         private bool validationPanelAutoRefreshEnabled = false;
+        private double savedLeftPanelWidth = 360;
+        private double savedRightPanelWidth = 420;
+        private double savedBottomPanelHeight = 280;
+        private double savedWindowWidth = 1280;
+        private double savedWindowHeight = 820;
+        private bool autoSaveEnabled = true;
+        private int autoSaveIntervalSeconds = 120;
+        private string? customAutoSaveFolderPath = null;
+        private bool hasUnsavedChangesForAutoSave = false;
+        private DateTime? lastAutoSaveTime = null;
+        private readonly DispatcherTimer autoSaveTimer = new();
 
         private string layersSearchText = "";
         private string layersTypeFilter = "All";
@@ -132,6 +150,8 @@ namespace haxballeditor
 
         private readonly Stack<string> undoStack = new();
         private readonly Stack<string> redoStack = new();
+        private readonly Stack<string> undoDescriptionStack = new();
+        private readonly Stack<string> redoDescriptionStack = new();
         private bool isRestoringHistory = false;
         private bool suppressUndoPush = false;
 
@@ -144,30 +164,54 @@ namespace haxballeditor
         private readonly HashSet<string> hiddenObjectKeys = new();
         private readonly HashSet<string> lockedObjectKeys = new();
 
+        private readonly Dictionary<string, Window> detachedPanelWindows = new();
+        private readonly Dictionary<string, object> detachedPanelContents = new();
+        private readonly Dictionary<string, string> panelDockStates = new()
+        {
+            ["Inspector"] = "Hidden",
+            ["Layers"] = "Hidden",
+            ["Validator"] = "Hidden",
+            ["JSON"] = "Hidden",
+            ["History"] = "Hidden"
+        };
+
+        private Point detachedPanelDragStartPoint;
+        private string? detachedPanelDragStartName = null;
+        private bool isApplyingPreferences = false;
+
         public MainWindow()
         {
             InitializeComponent();
+            LoadEditorPreferences();
+            InitializeAutoSaveTimer();
             UpdateToolSelectionUi();
 
             Loaded += MainWindow_Loaded;
             PreviewKeyDown += MainWindow_PreviewKeyDown;
             PreviewKeyUp += MainWindow_PreviewKeyUp;
             StateChanged += (_, _) => UpdateMaximizeRestoreButtonText();
+            Closing += (_, _) => { CaptureLayoutPreferences(); SaveEditorPreferences(); };
 
             CreateNewStadiumData();
             UpdateBackgroundUiFromData();
             UpdateJsonPreview();
             UpdateObjectCount();
             UpdateObjectsList();
+            UpdateHistoryPanel();
+            UpdateViewportMiniToolbarUi();
             UpdateInspectorForSelection("None");
             UpdateStatus("Editor ready.");
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            ApplySavedWindowMetrics();
+            InitializePanelDockLayout();
+            UpdateViewportMiniToolbarUi();
             RenderStadium();
             UpdateJsonPreview();
             UpdateMaximizeRestoreButtonText();
+            UpdateAutoSaveTimerState();
             await HideSplashOverlayAsync();
         }
 
@@ -329,7 +373,6 @@ namespace haxballeditor
                 return;
             }
 
-            MaximizeRestoreWindowButton.Content = WindowState == WindowState.Maximized ? "<>" : "[]";
             MaximizeRestoreWindowButton.ToolTip = WindowState == WindowState.Maximized ? "Restore" : "Maximize";
         }
 
@@ -375,6 +418,20 @@ namespace haxballeditor
             if (ctrlPressed && e.Key == Key.D && !textBoxFocused)
             {
                 DuplicateSelectedObjects();
+                e.Handled = true;
+                return;
+            }
+
+            if (ctrlPressed && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && e.Key == Key.H && !textBoxFocused)
+            {
+                MirrorSelectedObjects(true);
+                e.Handled = true;
+                return;
+            }
+
+            if (ctrlPressed && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && e.Key == Key.V && !textBoxFocused)
+            {
+                MirrorSelectedObjects(false);
                 e.Handled = true;
                 return;
             }
@@ -483,6 +540,28 @@ namespace haxballeditor
 
         private void MapCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
+            if (e.PreviousSize.Width > 0 &&
+                e.PreviousSize.Height > 0 &&
+                e.NewSize.Width > 0 &&
+                e.NewSize.Height > 0)
+            {
+                double oldCenterX = e.PreviousSize.Width / 2.0;
+                double oldCenterY = e.PreviousSize.Height / 2.0;
+                double newCenterX = e.NewSize.Width / 2.0;
+                double newCenterY = e.NewSize.Height / 2.0;
+
+                double centerDeltaX = newCenterX - oldCenterX;
+                double centerDeltaY = newCenterY - oldCenterY;
+
+                // The editor stores point-like stadium objects in canvas-relative data space
+                // and exports them by subtracting the current canvas center. When a splitter
+                // resize changes MapCanvas.ActualWidth/ActualHeight, that center changes too.
+                // Move the stored canvas-space objects by the same center delta so their
+                // exported HaxBall coordinates stay unchanged and the viewport does not drift.
+                TranslateCanvasAnchoredStadiumObjects(centerDeltaX, centerDeltaY);
+                UpdateViewportInfo();
+            }
+
             RenderStadium();
         }
 
@@ -490,6 +569,7 @@ namespace haxballeditor
         {
             PushUndoState("New Stadium");
             currentFilePath = null;
+            ClearHistoryStacks();
             hiddenObjectKeys.Clear();
             lockedObjectKeys.Clear();
             CreateNewStadiumData();
@@ -506,6 +586,7 @@ namespace haxballeditor
             UpdateJsonPreview();
             UpdateObjectCount();
             UpdateObjectsList();
+            hasUnsavedChangesForAutoSave = false;
             UpdateStatus("New stadium created.");
         }
 
@@ -797,6 +878,607 @@ namespace haxballeditor
         }
 
 
+        private void ViewInspectorMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Inspector", "Right");
+        private void ViewLayersMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Layers", "Right");
+        private void ViewValidatorMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Validator", "Right");
+        private void ViewJsonMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("JSON", "Right");
+
+        private void ViewInspectorDockLeftMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Inspector", "Left");
+        private void ViewInspectorDockRightMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Inspector", "Right");
+        private void ViewInspectorDockBottomMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Inspector", "Bottom");
+        private void ViewInspectorFloatMenuItem_Click(object sender, RoutedEventArgs e) => OpenDetachedPanel("Inspector");
+        private void ViewInspectorHideMenuItem_Click(object sender, RoutedEventArgs e) => HideEditorPanel("Inspector");
+
+        private void ViewLayersDockLeftMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Layers", "Left");
+        private void ViewLayersDockRightMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Layers", "Right");
+        private void ViewLayersDockBottomMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Layers", "Bottom");
+        private void ViewLayersFloatMenuItem_Click(object sender, RoutedEventArgs e) => OpenDetachedPanel("Layers");
+        private void ViewLayersHideMenuItem_Click(object sender, RoutedEventArgs e) => HideEditorPanel("Layers");
+
+        private void ViewValidatorDockLeftMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Validator", "Left");
+        private void ViewValidatorDockRightMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Validator", "Right");
+        private void ViewValidatorDockBottomMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("Validator", "Bottom");
+        private void ViewValidatorFloatMenuItem_Click(object sender, RoutedEventArgs e) => OpenDetachedPanel("Validator");
+        private void ViewValidatorHideMenuItem_Click(object sender, RoutedEventArgs e) => HideEditorPanel("Validator");
+
+        private void ViewJsonDockLeftMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("JSON", "Left");
+        private void ViewJsonDockRightMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("JSON", "Right");
+        private void ViewJsonDockBottomMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("JSON", "Bottom");
+        private void ViewJsonFloatMenuItem_Click(object sender, RoutedEventArgs e) => OpenDetachedPanel("JSON");
+        private void ViewJsonHideMenuItem_Click(object sender, RoutedEventArgs e) => HideEditorPanel("JSON");
+
+        private void ViewHistoryDockLeftMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("History", "Left");
+        private void ViewHistoryDockRightMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("History", "Right");
+        private void ViewHistoryDockBottomMenuItem_Click(object sender, RoutedEventArgs e) => DockEditorPanel("History", "Bottom");
+        private void ViewHistoryFloatMenuItem_Click(object sender, RoutedEventArgs e) => OpenDetachedPanel("History");
+        private void ViewHistoryHideMenuItem_Click(object sender, RoutedEventArgs e) => HideEditorPanel("History");
+
+        private void ViewHideAllPanelsMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            HideEditorPanel("Inspector");
+            HideEditorPanel("Layers");
+            HideEditorPanel("Validator");
+            HideEditorPanel("JSON");
+            HideEditorPanel("History");
+            UpdateStatus("All panels hidden.");
+        }
+
+        private void InitializePanelDockLayout()
+        {
+            isApplyingPreferences = true;
+            try
+            {
+                ApplySavedPanelDockState("Inspector");
+                ApplySavedPanelDockState("Layers");
+                ApplySavedPanelDockState("Validator");
+                ApplySavedPanelDockState("JSON");
+                ApplySavedPanelDockState("History");
+            }
+            finally
+            {
+                isApplyingPreferences = false;
+            }
+
+            RefreshDockHostVisibility();
+            UpdateStatus("Editor ready. Panel layout restored from settings.");
+        }
+
+        private void ApplySavedPanelDockState(string panelName)
+        {
+            string state = panelDockStates.TryGetValue(panelName, out string? savedState)
+                ? savedState
+                : "Hidden";
+
+            if (state == "Floating")
+            {
+                // Floating windows are restored as right-docked panels to avoid opening
+                // unexpected external windows during startup.
+                DockEditorPanel(panelName, "Right");
+                return;
+            }
+
+            if (state == "Left" || state == "Right" || state == "Bottom")
+            {
+                DockEditorPanel(panelName, state);
+                return;
+            }
+
+            HideEditorPanel(panelName, false);
+        }
+
+        private void PanelHeader_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.Tag is string panelName)
+            {
+                OpenDetachedPanel(panelName);
+                e.Handled = true;
+            }
+        }
+
+        private void PanelHeader_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.Tag is string panelName)
+            {
+                if (e.ClickCount >= 2)
+                {
+                    detachedPanelDragStartName = null;
+                    OpenDetachedPanel(panelName);
+                    e.Handled = true;
+                    return;
+                }
+
+                detachedPanelDragStartPoint = e.GetPosition(this);
+                detachedPanelDragStartName = panelName;
+            }
+        }
+
+        private void PanelHeader_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || detachedPanelDragStartName == null)
+            {
+                return;
+            }
+
+            Point currentPoint = e.GetPosition(this);
+            double dragX = Math.Abs(currentPoint.X - detachedPanelDragStartPoint.X);
+            double dragY = Math.Abs(currentPoint.Y - detachedPanelDragStartPoint.Y);
+
+            if (dragX < SystemParameters.MinimumHorizontalDragDistance && dragY < SystemParameters.MinimumVerticalDragDistance)
+            {
+                return;
+            }
+
+            string panelName = detachedPanelDragStartName;
+            detachedPanelDragStartName = null;
+            OpenDetachedPanel(panelName);
+            e.Handled = true;
+        }
+
+        private void OpenDetachedPanel(string panelName)
+        {
+            if (detachedPanelWindows.TryGetValue(panelName, out Window? existingWindow))
+            {
+                existingWindow.Activate();
+                return;
+            }
+
+            TabItem? tabItem = GetPanelTabItem(panelName);
+            if (tabItem == null || tabItem.Content == null)
+            {
+                return;
+            }
+
+            object panelContent = tabItem.Content;
+            detachedPanelContents[panelName] = panelContent;
+            tabItem.Content = CreateDetachedPanelPlaceholder(panelName);
+            tabItem.IsSelected = true;
+
+            Window panelWindow = new()
+            {
+                Title = $"HaxStudio - {GetPanelDisplayName(panelName)}",
+                Owner = this,
+                Width = GetDetachedPanelWidth(panelName),
+                Height = GetDetachedPanelHeight(panelName),
+                MinWidth = 360,
+                MinHeight = 420,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.CanResize,
+                Background = new SolidColorBrush(Color.FromRgb(17, 19, 23)),
+                Content = CreateDetachedPanelWindowContent(panelName, panelContent)
+            };
+
+            panelWindow.Closed += (_, _) => RestoreDetachedPanel(panelName, panelWindow);
+            detachedPanelWindows[panelName] = panelWindow;
+            panelDockStates[panelName] = "Floating";
+            SaveEditorPreferences();
+
+            panelWindow.Show();
+            panelWindow.Activate();
+
+            RefreshDockHostVisibility();
+            UpdateStatus($"{GetPanelDisplayName(panelName)} detached into a separate window.");
+        }
+
+        private void ShowDockedPanel(string panelName)
+        {
+            DockEditorPanel(panelName, "Right");
+        }
+
+        private void DockEditorPanel(string panelName, string dockSide)
+        {
+            if (detachedPanelWindows.TryGetValue(panelName, out Window? panelWindow))
+            {
+                panelWindow.Close();
+            }
+
+            TabItem? tabItem = GetPanelTabItem(panelName);
+            TabControl? targetTabControl = GetDockTabControl(dockSide);
+
+            if (tabItem == null || targetTabControl == null)
+            {
+                return;
+            }
+
+            MoveTabItemToTabControl(tabItem, targetTabControl);
+
+            tabItem.Visibility = Visibility.Visible;
+            tabItem.IsSelected = true;
+            targetTabControl.SelectedItem = tabItem;
+
+            panelDockStates[panelName] = dockSide;
+            if (!isApplyingPreferences)
+            {
+                SaveEditorPreferences();
+            }
+
+            RefreshDockHostVisibility();
+            UpdateStatus($"{GetPanelDisplayName(panelName)} docked to {dockSide.ToLowerInvariant()}.");
+        }
+
+        private void HideEditorPanel(string panelName, bool updateStatus = true)
+        {
+            if (detachedPanelWindows.TryGetValue(panelName, out Window? panelWindow))
+            {
+                panelWindow.Close();
+            }
+
+            TabItem? tabItem = GetPanelTabItem(panelName);
+            if (tabItem == null)
+            {
+                return;
+            }
+
+            MoveTabItemToTabControl(tabItem, HiddenPanelTabControl);
+            panelDockStates[panelName] = "Hidden";
+            if (!isApplyingPreferences)
+            {
+                SaveEditorPreferences();
+            }
+
+            RefreshDockHostVisibility();
+
+            if (updateStatus)
+            {
+                UpdateStatus($"{GetPanelDisplayName(panelName)} panel hidden.");
+            }
+        }
+
+        private void MoveTabItemToTabControl(TabItem tabItem, TabControl targetTabControl)
+        {
+            if (tabItem.Parent is TabControl currentTabControl)
+            {
+                if (ReferenceEquals(currentTabControl, targetTabControl))
+                {
+                    return;
+                }
+
+                currentTabControl.Items.Remove(tabItem);
+            }
+
+            if (!targetTabControl.Items.Contains(tabItem))
+            {
+                targetTabControl.Items.Add(tabItem);
+            }
+        }
+
+        private TabControl? GetDockTabControl(string dockSide)
+        {
+            return dockSide switch
+            {
+                "Left" => LeftPanelTabControl,
+                "Right" => RightPanelTabControl,
+                "Bottom" => BottomPanelTabControl,
+                _ => null
+            };
+        }
+
+        private void RefreshDockHostVisibility()
+        {
+            bool hasLeft = LeftPanelTabControl.Items.Count > 0;
+            bool hasRight = RightPanelTabControl.Items.Count > 0;
+            bool hasBottom = BottomPanelTabControl.Items.Count > 0;
+
+            LeftPanelHost.Visibility = hasLeft ? Visibility.Visible : Visibility.Collapsed;
+            LeftPanelGridSplitter.Visibility = hasLeft ? Visibility.Visible : Visibility.Collapsed;
+            LeftPanelColumn.Width = hasLeft ? new GridLength(Math.Max(320, LeftPanelColumn.ActualWidth > 0 ? LeftPanelColumn.ActualWidth : savedLeftPanelWidth)) : new GridLength(0);
+            LeftPanelSplitterColumn.Width = hasLeft ? new GridLength(6) : new GridLength(0);
+
+            RightPanelHost.Visibility = hasRight ? Visibility.Visible : Visibility.Collapsed;
+            RightPanelGridSplitter.Visibility = hasRight ? Visibility.Visible : Visibility.Collapsed;
+            RightPanelColumn.Width = hasRight ? new GridLength(Math.Max(320, RightPanelColumn.ActualWidth > 0 ? RightPanelColumn.ActualWidth : savedRightPanelWidth)) : new GridLength(0);
+            RightPanelSplitterColumn.Width = hasRight ? new GridLength(6) : new GridLength(0);
+
+            BottomPanelHost.Visibility = hasBottom ? Visibility.Visible : Visibility.Collapsed;
+            BottomPanelGridSplitter.Visibility = hasBottom ? Visibility.Visible : Visibility.Collapsed;
+            BottomPanelRow.Height = hasBottom ? new GridLength(Math.Max(220, BottomPanelRow.ActualHeight > 0 ? BottomPanelRow.ActualHeight : savedBottomPanelHeight)) : new GridLength(0);
+            BottomPanelSplitterRow.Height = hasBottom ? new GridLength(6) : new GridLength(0);
+
+            RenderStadium();
+        }
+
+        private Border CreateDetachedPanelWindowContent(string panelName, object panelContent)
+        {
+            Grid root = new()
+            {
+                Background = new SolidColorBrush(Color.FromRgb(17, 19, 23))
+            };
+
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(38) });
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            Border titleBar = new()
+            {
+                Background = new SolidColorBrush(Color.FromRgb(24, 27, 32)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(52, 58, 69)),
+                BorderThickness = new Thickness(0, 0, 0, 1)
+            };
+            titleBar.MouseLeftButtonDown += (_, e) =>
+            {
+                if (e.ClickCount == 2)
+                {
+                    return;
+                }
+
+                Window? ownerWindow = Window.GetWindow(root);
+                if (ownerWindow == null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    ownerWindow.DragMove();
+                }
+                catch (InvalidOperationException)
+                {
+                    // DragMove can throw if the mouse state changes during drag. Safe to ignore.
+                }
+            };
+            Grid.SetRow(titleBar, 0);
+            root.Children.Add(titleBar);
+
+            DockPanel titleContent = new()
+            {
+                LastChildFill = true,
+                Margin = new Thickness(12, 0, 8, 0)
+            };
+            titleBar.Child = titleContent;
+
+            StackPanel titleLeft = new()
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            DockPanel.SetDock(titleLeft, Dock.Left);
+            titleContent.Children.Add(titleLeft);
+
+            Border icon = new()
+            {
+                Width = 18,
+                Height = 18,
+                CornerRadius = new CornerRadius(5),
+                Background = new SolidColorBrush(Color.FromRgb(47, 183, 232)),
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            titleLeft.Children.Add(icon);
+
+            titleLeft.Children.Add(new TextBlock
+            {
+                Text = GetPanelDisplayName(panelName),
+                Foreground = new SolidColorBrush(Color.FromRgb(232, 237, 244)),
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            StackPanel titleButtons = new()
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            DockPanel.SetDock(titleButtons, Dock.Right);
+            titleContent.Children.Add(titleButtons);
+
+            Button dockRightButton = CreateDetachedTitleButton("Dock Right");
+            dockRightButton.Margin = new Thickness(0, 0, 6, 0);
+            dockRightButton.Click += (_, _) => DockEditorPanel(panelName, "Right");
+            titleButtons.Children.Add(dockRightButton);
+
+            Button closeButton = CreateDetachedTitleButton("X");
+            closeButton.Width = 32;
+            closeButton.Click += (_, _) => Window.GetWindow(root)?.Close();
+            titleButtons.Children.Add(closeButton);
+
+            Border contentHost = new()
+            {
+                Background = new SolidColorBrush(Color.FromRgb(28, 31, 36)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(52, 58, 69)),
+                BorderThickness = new Thickness(1, 0, 1, 1),
+                Padding = new Thickness(0),
+                Child = panelContent as UIElement
+            };
+            Grid.SetRow(contentHost, 1);
+            root.Children.Add(contentHost);
+
+            return new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(17, 19, 23)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(67, 75, 88)),
+                BorderThickness = new Thickness(1),
+                Child = root
+            };
+        }
+
+        private static Button CreateDetachedTitleButton(string text)
+        {
+            Button button = new()
+            {
+                Content = text,
+                Height = 24,
+                MinWidth = 46,
+                Padding = new Thickness(10, 0, 10, 0),
+                Foreground = new SolidColorBrush(Color.FromRgb(232, 237, 244)),
+                Background = new SolidColorBrush(Color.FromRgb(43, 48, 57)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(75, 85, 100)),
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand
+            };
+
+            return button;
+        }
+
+        private static void DetachElementFromCurrentParent(UIElement element)
+        {
+            DependencyObject? parent = VisualTreeHelper.GetParent(element);
+
+            if (parent == null)
+            {
+                return;
+            }
+
+            if (parent is Border border && ReferenceEquals(border.Child, element))
+            {
+                border.Child = null;
+                return;
+            }
+
+            if (parent is ContentControl contentControl && ReferenceEquals(contentControl.Content, element))
+            {
+                contentControl.Content = null;
+                return;
+            }
+
+            if (parent is Panel panel)
+            {
+                panel.Children.Remove(element);
+                return;
+            }
+
+            if (parent is Decorator decorator && ReferenceEquals(decorator.Child, element))
+            {
+                decorator.Child = null;
+            }
+        }
+
+        private void RestoreDetachedPanel(string panelName, Window panelWindow)
+        {
+            if (!detachedPanelWindows.TryGetValue(panelName, out Window? trackedWindow) || !ReferenceEquals(trackedWindow, panelWindow))
+            {
+                return;
+            }
+
+            detachedPanelWindows.Remove(panelName);
+
+            if (detachedPanelContents.TryGetValue(panelName, out object? panelContent))
+            {
+                if (panelContent is UIElement panelElement)
+                {
+                    DetachElementFromCurrentParent(panelElement);
+                }
+
+                panelWindow.Content = null;
+
+                if (panelContent is UIElement panelElementAfterWindowDetach)
+                {
+                    DetachElementFromCurrentParent(panelElementAfterWindowDetach);
+                }
+
+                TabItem? tabItem = GetPanelTabItem(panelName);
+                if (tabItem != null)
+                {
+                    tabItem.Content = panelContent;
+
+                    if (tabItem.Parent == null)
+                    {
+                        MoveTabItemToTabControl(tabItem, HiddenPanelTabControl);
+                    }
+                }
+
+                detachedPanelContents.Remove(panelName);
+            }
+            else
+            {
+                panelWindow.Content = null;
+            }
+
+            RefreshDockHostVisibility();
+            UpdateStatus($"{GetPanelDisplayName(panelName)} floating window closed.");
+        }
+
+        private TabItem? GetPanelTabItem(string panelName)
+        {
+            return panelName switch
+            {
+                "Inspector" => InspectorTabItem,
+                "Layers" => LayersTabItem,
+                "Validator" => ValidatorTabItem,
+                "JSON" => JsonTabItem,
+                "History" => HistoryTabItem,
+                _ => null
+            };
+        }
+
+        private static string GetPanelDisplayName(string panelName)
+        {
+            return panelName == "JSON" ? "JSON" : panelName;
+        }
+
+        private static double GetDetachedPanelWidth(string panelName)
+        {
+            return panelName switch
+            {
+                "JSON" => 760,
+                "History" => 560,
+                "Layers" => 520,
+                "Validator" => 560,
+                _ => 520
+            };
+        }
+
+        private static double GetDetachedPanelHeight(string panelName)
+        {
+            return panelName switch
+            {
+                "JSON" => 640,
+                "History" => 560,
+                _ => 680
+            };
+        }
+
+        private Border CreateDetachedPanelPlaceholder(string panelName)
+        {
+            StackPanel content = new()
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(20)
+            };
+
+            content.Children.Add(new TextBlock
+            {
+                Text = $"{GetPanelDisplayName(panelName)} is open in a separate window.",
+                Foreground = new SolidColorBrush(Color.FromRgb(235, 238, 242)),
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10)
+            });
+
+            content.Children.Add(new TextBlock
+            {
+                Text = "Close the floating window or use View > Panels to dock it to the left, right, or bottom.",
+                Foreground = new SolidColorBrush(Color.FromRgb(145, 152, 162)),
+                FontSize = 12,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 16)
+            });
+
+            Button restoreButton = new()
+            {
+                Content = "Dock Right",
+                MinWidth = 110,
+                Height = 32,
+                Padding = new Thickness(12, 0, 12, 0),
+                Foreground = new SolidColorBrush(Color.FromRgb(235, 238, 242)),
+                Background = new SolidColorBrush(Color.FromRgb(43, 47, 54)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(69, 76, 86)),
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand
+            };
+            restoreButton.Click += (_, _) => DockEditorPanel(panelName, "Right");
+            content.Children.Add(restoreButton);
+
+            return new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(24, 25, 28)),
+                Child = content
+            };
+        }
+
         private void SettingsMenu_Click(object sender, RoutedEventArgs e)
         {
             ShowSettingsWindow();
@@ -1060,42 +1742,120 @@ namespace haxballeditor
             AddSettingsSectionTitle(content, "Validator");
 
             CheckBox saveValidationCheckBox = CreateSettingsCheckBox("Warn Before Save When Critical Errors Exist", validationWarningBeforeSaveEnabled);
-            saveValidationCheckBox.Checked += (_, _) => { validationWarningBeforeSaveEnabled = true; UpdateStatus("Save validation warnings enabled."); };
-            saveValidationCheckBox.Unchecked += (_, _) => { validationWarningBeforeSaveEnabled = false; UpdateStatus("Save validation warnings disabled."); };
+            saveValidationCheckBox.Checked += (_, _) => { validationWarningBeforeSaveEnabled = true; SaveEditorPreferences(); UpdateStatus("Save validation warnings enabled."); };
+            saveValidationCheckBox.Unchecked += (_, _) => { validationWarningBeforeSaveEnabled = false; SaveEditorPreferences(); UpdateStatus("Save validation warnings disabled."); };
             content.Children.Add(saveValidationCheckBox);
 
             CheckBox autoRefreshValidationCheckBox = CreateSettingsCheckBox("Auto Refresh Validator Panel After Validate", validationPanelAutoRefreshEnabled);
-            autoRefreshValidationCheckBox.Checked += (_, _) => { validationPanelAutoRefreshEnabled = true; RefreshValidationPanel(false); UpdateStatus("Validator auto refresh enabled."); };
-            autoRefreshValidationCheckBox.Unchecked += (_, _) => { validationPanelAutoRefreshEnabled = false; UpdateStatus("Validator auto refresh disabled."); };
+            autoRefreshValidationCheckBox.Checked += (_, _) => { validationPanelAutoRefreshEnabled = true; SaveEditorPreferences(); RefreshValidationPanel(false); UpdateStatus("Validator auto refresh enabled."); };
+            autoRefreshValidationCheckBox.Unchecked += (_, _) => { validationPanelAutoRefreshEnabled = false; SaveEditorPreferences(); UpdateStatus("Validator auto refresh disabled."); };
             content.Children.Add(autoRefreshValidationCheckBox);
 
             AddSettingsNote(content, "When save validation is enabled, Save / Save As will warn you before writing a stadium that contains critical errors such as broken segment indexes or invalid disc references.");
 
+            AddSettingsSectionTitle(content, "AutoSave");
+
+            CheckBox autoSaveCheckBox = CreateSettingsCheckBox("Enable AutoSave Backup", autoSaveEnabled);
+            autoSaveCheckBox.Checked += (_, _) =>
+            {
+                autoSaveEnabled = true;
+                SaveEditorPreferences();
+                UpdateAutoSaveTimerState();
+                UpdateStatus("AutoSave enabled.");
+            };
+            autoSaveCheckBox.Unchecked += (_, _) =>
+            {
+                autoSaveEnabled = false;
+                SaveEditorPreferences();
+                UpdateAutoSaveTimerState();
+                UpdateStatus("AutoSave disabled.");
+            };
+            content.Children.Add(autoSaveCheckBox);
+
+            TextBlock autoSaveFolderLabel = new()
+            {
+                Text = "AutoSave Folder",
+                Foreground = new SolidColorBrush(Color.FromRgb(235, 238, 242)),
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 10, 0, 6)
+            };
+            content.Children.Add(autoSaveFolderLabel);
+
+            Grid autoSaveFolderGrid = new()
+            {
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            autoSaveFolderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            autoSaveFolderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            autoSaveFolderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            TextBox autoSaveFolderTextBox = CreateSettingsTextBox(0);
+            autoSaveFolderTextBox.Text = GetAutoSaveFolderDisplayText();
+            autoSaveFolderTextBox.IsReadOnly = true;
+            autoSaveFolderTextBox.ToolTip = "The folder where AutoSave backup files are written.";
+            Grid.SetColumn(autoSaveFolderTextBox, 0);
+            autoSaveFolderGrid.Children.Add(autoSaveFolderTextBox);
+
+            Button browseAutoSaveFolderButton = CreateSettingsActionButton("Browse...");
+            browseAutoSaveFolderButton.Margin = new Thickness(8, 0, 0, 0);
+            browseAutoSaveFolderButton.Click += (_, _) =>
+            {
+                BrowseAutoSaveFolder(autoSaveFolderTextBox);
+            };
+            Grid.SetColumn(browseAutoSaveFolderButton, 1);
+            autoSaveFolderGrid.Children.Add(browseAutoSaveFolderButton);
+
+            Button resetAutoSaveFolderButton = CreateSettingsActionButton("Reset Default");
+            resetAutoSaveFolderButton.Margin = new Thickness(8, 0, 0, 0);
+            resetAutoSaveFolderButton.Click += (_, _) =>
+            {
+                customAutoSaveFolderPath = null;
+                SaveEditorPreferences();
+                autoSaveFolderTextBox.Text = GetAutoSaveFolderDisplayText();
+                UpdateStatus("AutoSave folder reset to default.");
+            };
+            Grid.SetColumn(resetAutoSaveFolderButton, 2);
+            autoSaveFolderGrid.Children.Add(resetAutoSaveFolderButton);
+
+            content.Children.Add(autoSaveFolderGrid);
+
+            AddSettingsNote(content, "AutoSave writes a separate .autosave.hbs backup every 2 minutes when there are unsaved changes. If you choose a custom folder, all AutoSave backups will be written there. If you reset to default, saved stadiums use their own folder and unsaved stadiums use AppData/Local/HaxStudio/AutoSave.");
+
             AddSettingsSectionTitle(content, "Viewport Display");
 
             CheckBox showGridCheckBox = CreateSettingsCheckBox("Show Grid", showViewportGrid);
-            showGridCheckBox.Checked += (_, _) => { showViewportGrid = true; RenderStadium(); UpdateStatus("Viewport grid enabled."); };
-            showGridCheckBox.Unchecked += (_, _) => { showViewportGrid = false; RenderStadium(); UpdateStatus("Viewport grid disabled."); };
+            showGridCheckBox.Checked += (_, _) => { showViewportGrid = true; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Viewport grid enabled."); };
+            showGridCheckBox.Unchecked += (_, _) => { showViewportGrid = false; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Viewport grid disabled."); };
             content.Children.Add(showGridCheckBox);
 
             CheckBox showVertexesCheckBox = CreateSettingsCheckBox("Show Vertexes", showViewportVertexes);
-            showVertexesCheckBox.Checked += (_, _) => { showViewportVertexes = true; RenderStadium(); UpdateStatus("Vertex display enabled."); };
-            showVertexesCheckBox.Unchecked += (_, _) => { showViewportVertexes = false; RenderStadium(); UpdateStatus("Vertex display disabled."); };
+            showVertexesCheckBox.Checked += (_, _) => { showViewportVertexes = true; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Vertex display enabled."); };
+            showVertexesCheckBox.Unchecked += (_, _) => { showViewportVertexes = false; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Vertex display disabled."); };
             content.Children.Add(showVertexesCheckBox);
 
+            CheckBox showSegmentsCheckBox = CreateSettingsCheckBox("Show Segments", showViewportSegments);
+            showSegmentsCheckBox.Checked += (_, _) => { showViewportSegments = true; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Segment display enabled."); };
+            showSegmentsCheckBox.Unchecked += (_, _) => { showViewportSegments = false; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Segment display disabled."); };
+            content.Children.Add(showSegmentsCheckBox);
+
+            CheckBox showDiscsCheckBox = CreateSettingsCheckBox("Show Discs", showViewportDiscs);
+            showDiscsCheckBox.Checked += (_, _) => { showViewportDiscs = true; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Disc display enabled."); };
+            showDiscsCheckBox.Unchecked += (_, _) => { showViewportDiscs = false; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Disc display disabled."); };
+            content.Children.Add(showDiscsCheckBox);
+
             CheckBox showPlanesCheckBox = CreateSettingsCheckBox("Show Planes", showViewportPlanes);
-            showPlanesCheckBox.Checked += (_, _) => { showViewportPlanes = true; RenderStadium(); UpdateStatus("Plane display enabled."); };
-            showPlanesCheckBox.Unchecked += (_, _) => { showViewportPlanes = false; RenderStadium(); UpdateStatus("Plane display disabled."); };
+            showPlanesCheckBox.Checked += (_, _) => { showViewportPlanes = true; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Plane display enabled."); };
+            showPlanesCheckBox.Unchecked += (_, _) => { showViewportPlanes = false; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Plane display disabled."); };
             content.Children.Add(showPlanesCheckBox);
 
             CheckBox showStripesCheckBox = CreateSettingsCheckBox("Show Background Stripes", showViewportGrassStripes);
-            showStripesCheckBox.Checked += (_, _) => { showViewportGrassStripes = true; RenderStadium(); UpdateStatus("Background stripes enabled."); };
-            showStripesCheckBox.Unchecked += (_, _) => { showViewportGrassStripes = false; RenderStadium(); UpdateStatus("Background stripes disabled."); };
+            showStripesCheckBox.Checked += (_, _) => { showViewportGrassStripes = true; RenderStadium(); SaveEditorPreferences(); UpdateStatus("Background stripes enabled."); };
+            showStripesCheckBox.Unchecked += (_, _) => { showViewportGrassStripes = false; RenderStadium(); SaveEditorPreferences(); UpdateStatus("Background stripes disabled."); };
             content.Children.Add(showStripesCheckBox);
 
             CheckBox showInvisibleCheckBox = CreateSettingsCheckBox("Show Invisible Objects in Editor", showViewportInvisibleObjects);
-            showInvisibleCheckBox.Checked += (_, _) => { showViewportInvisibleObjects = true; RenderStadium(); UpdateStatus("Invisible object preview enabled."); };
-            showInvisibleCheckBox.Unchecked += (_, _) => { showViewportInvisibleObjects = false; RenderStadium(); UpdateStatus("Invisible object preview disabled."); };
+            showInvisibleCheckBox.Checked += (_, _) => { showViewportInvisibleObjects = true; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Invisible object preview enabled."); };
+            showInvisibleCheckBox.Unchecked += (_, _) => { showViewportInvisibleObjects = false; RenderStadium(); UpdateViewportMiniToolbarUi(); SaveEditorPreferences(); UpdateStatus("Invisible object preview disabled."); };
             content.Children.Add(showInvisibleCheckBox);
 
             AddSettingsSectionTitle(content, "Vertex Size");
@@ -1170,6 +1930,38 @@ namespace haxballeditor
 
             return comboBox;
         }
+        private TextBox CreateSettingsTextBox(double width)
+        {
+            return new TextBox
+            {
+                Width = width > 0 ? width : double.NaN,
+                Height = 32,
+                Padding = new Thickness(9, 5, 9, 5),
+                Foreground = new SolidColorBrush(Color.FromRgb(235, 238, 242)),
+                Background = new SolidColorBrush(Color.FromRgb(24, 26, 30)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(68, 74, 84)),
+                BorderThickness = new Thickness(1),
+                FontSize = 12,
+                VerticalContentAlignment = VerticalAlignment.Center
+            };
+        }
+
+        private Button CreateSettingsActionButton(string text)
+        {
+            return new Button
+            {
+                Content = text,
+                Height = 32,
+                MinWidth = 96,
+                Padding = new Thickness(12, 0, 12, 0),
+                Foreground = new SolidColorBrush(Color.FromRgb(235, 238, 242)),
+                Background = new SolidColorBrush(Color.FromRgb(43, 47, 54)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(69, 76, 86)),
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand
+            };
+        }
+
 
         private ComboBoxItem CreateSettingsComboBoxItem(string text)
         {
@@ -1598,6 +2390,11 @@ namespace haxballeditor
             }
 
             SaveAsStadium();
+        }
+
+        private void AutoSaveNowButton_Click(object sender, RoutedEventArgs e)
+        {
+            RunAutoSaveBackup(true);
         }
 
         private void ExitButton_Click(object sender, RoutedEventArgs e)
@@ -3017,6 +3814,348 @@ namespace haxballeditor
             }
         }
 
+        private void InitializeAutoSaveTimer()
+        {
+            autoSaveTimer.Interval = TimeSpan.FromSeconds(autoSaveIntervalSeconds);
+            autoSaveTimer.Tick += AutoSaveTimer_Tick;
+        }
+
+        private void UpdateAutoSaveTimerState()
+        {
+            autoSaveTimer.Interval = TimeSpan.FromSeconds(autoSaveIntervalSeconds);
+
+            if (autoSaveEnabled)
+            {
+                if (!autoSaveTimer.IsEnabled)
+                {
+                    autoSaveTimer.Start();
+                }
+            }
+            else
+            {
+                autoSaveTimer.Stop();
+            }
+        }
+
+        private void AutoSaveTimer_Tick(object? sender, EventArgs e)
+        {
+            RunAutoSaveBackup(false);
+        }
+
+        private void RunAutoSaveBackup(bool force)
+        {
+            if (!autoSaveEnabled && !force)
+            {
+                return;
+            }
+
+            if (!force && !hasUnsavedChangesForAutoSave)
+            {
+                return;
+            }
+
+            if (isRestoringHistory || isDraggingSelectedItems || isDraggingSegment || isDraggingGoal || isDraggingPlane ||
+                isDraggingVertex || isDraggingDisc || isDraggingRedSpawn || isDraggingBlueSpawn || isDraggingCurveHandle ||
+                isDraggingGoalEndpoint || isDraggingSelectionRectangle)
+            {
+                return;
+            }
+
+            try
+            {
+                if (jsonPreviewUserEdited)
+                {
+                    TryApplyJsonPreviewToEditor("AutoSave");
+                }
+                else
+                {
+                    ApplyBackgroundSettingsFromUi();
+                }
+
+                string autoSavePath = GetAutoSaveFilePath();
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(autoSavePath)!);
+                File.WriteAllText(autoSavePath, BuildStadiumJson());
+
+                lastAutoSaveTime = DateTime.Now;
+                hasUnsavedChangesForAutoSave = false;
+                UpdateStatus($"AutoSaved backup: {System.IO.Path.GetFileName(autoSavePath)}");
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"AutoSave failed: {ex.Message}");
+            }
+        }
+
+        private string GetAutoSaveFilePath()
+        {
+            string autoSaveDirectory = GetAutoSaveDirectory();
+            string fileName = !string.IsNullOrWhiteSpace(currentFilePath)
+                ? System.IO.Path.GetFileNameWithoutExtension(currentFilePath)
+                : MakeSafeFileName(string.IsNullOrWhiteSpace(stadium.Name) ? "New Stadium" : stadium.Name);
+
+            return System.IO.Path.Combine(autoSaveDirectory, $"{fileName}.autosave.hbs");
+        }
+
+        private string GetAutoSaveDirectory()
+        {
+            if (!string.IsNullOrWhiteSpace(customAutoSaveFolderPath))
+            {
+                return customAutoSaveFolderPath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(currentFilePath))
+            {
+                return System.IO.Path.GetDirectoryName(currentFilePath) ?? GetDefaultUnsavedAutoSaveDirectory();
+            }
+
+            return GetDefaultUnsavedAutoSaveDirectory();
+        }
+
+        private string GetDefaultUnsavedAutoSaveDirectory()
+        {
+            return System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "HaxStudio",
+                "AutoSave");
+        }
+
+        private string GetAutoSaveFolderDisplayText()
+        {
+            if (!string.IsNullOrWhiteSpace(customAutoSaveFolderPath))
+            {
+                return customAutoSaveFolderPath;
+            }
+
+            return $"Default: {GetAutoSaveDirectory()}";
+        }
+
+        private void BrowseAutoSaveFolder(TextBox targetTextBox)
+        {
+            try
+            {
+                OpenFolderDialog dialog = new()
+                {
+                    Title = "Choose AutoSave Folder",
+                    InitialDirectory = Directory.Exists(GetAutoSaveDirectory())
+                        ? GetAutoSaveDirectory()
+                        : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+                };
+
+                bool? result = dialog.ShowDialog(this);
+
+                if (result != true || string.IsNullOrWhiteSpace(dialog.FolderName))
+                {
+                    UpdateStatus("AutoSave folder selection cancelled.");
+                    return;
+                }
+
+                customAutoSaveFolderPath = dialog.FolderName;
+                SaveEditorPreferences();
+                targetTextBox.Text = GetAutoSaveFolderDisplayText();
+                UpdateStatus($"AutoSave folder set: {customAutoSaveFolderPath}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "AutoSave Folder Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                UpdateStatus("AutoSave folder selection failed.");
+            }
+        }
+
+        private void LoadEditorPreferences()
+        {
+            try
+            {
+                string path = GetEditorPreferencesFilePath();
+                if (!File.Exists(path))
+                {
+                    return;
+                }
+
+                string json = File.ReadAllText(path);
+                EditorPreferences? preferences = JsonSerializer.Deserialize<EditorPreferences>(json);
+
+                if (preferences == null)
+                {
+                    return;
+                }
+
+                autoSaveEnabled = preferences.AutoSaveEnabled ?? autoSaveEnabled;
+                validationWarningBeforeSaveEnabled = preferences.ValidationWarningBeforeSaveEnabled ?? validationWarningBeforeSaveEnabled;
+                validationPanelAutoRefreshEnabled = preferences.ValidationPanelAutoRefreshEnabled ?? validationPanelAutoRefreshEnabled;
+
+                showViewportGrid = preferences.ShowViewportGrid ?? showViewportGrid;
+                showViewportVertexes = preferences.ShowViewportVertexes ?? showViewportVertexes;
+                showViewportSegments = preferences.ShowViewportSegments ?? showViewportSegments;
+                showViewportDiscs = preferences.ShowViewportDiscs ?? showViewportDiscs;
+                showViewportPlanes = preferences.ShowViewportPlanes ?? showViewportPlanes;
+                showViewportGrassStripes = preferences.ShowViewportGrassStripes ?? showViewportGrassStripes;
+                showViewportInvisibleObjects = preferences.ShowViewportInvisibleObjects ?? showViewportInvisibleObjects;
+                autoMirrorPlacement = preferences.AutoMirrorPlacement ?? autoMirrorPlacement;
+
+                snapToGrid = preferences.SnapToGrid ?? snapToGrid;
+                snapGridSize = preferences.SnapGridSize ?? snapGridSize;
+                viewportVertexSize = string.IsNullOrWhiteSpace(preferences.ViewportVertexSize) ? viewportVertexSize : preferences.ViewportVertexSize;
+
+                savedLeftPanelWidth = preferences.LeftPanelWidth ?? savedLeftPanelWidth;
+                savedRightPanelWidth = preferences.RightPanelWidth ?? savedRightPanelWidth;
+                savedBottomPanelHeight = preferences.BottomPanelHeight ?? savedBottomPanelHeight;
+                savedWindowWidth = preferences.WindowWidth ?? savedWindowWidth;
+                savedWindowHeight = preferences.WindowHeight ?? savedWindowHeight;
+
+                if (!string.IsNullOrWhiteSpace(preferences.CustomAutoSaveFolderPath))
+                {
+                    customAutoSaveFolderPath = preferences.CustomAutoSaveFolderPath;
+                }
+
+                if (preferences.PanelDockStates != null)
+                {
+                    foreach (KeyValuePair<string, string> item in preferences.PanelDockStates)
+                    {
+                        if (panelDockStates.ContainsKey(item.Key))
+                        {
+                            panelDockStates[item.Key] = NormalizePanelDockState(item.Value);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Preferences are non-critical. If loading fails, keep defaults.
+            }
+        }
+
+        private void SaveEditorPreferences()
+        {
+            if (isApplyingPreferences)
+            {
+                return;
+            }
+
+            try
+            {
+                CaptureLayoutPreferences();
+
+                string path = GetEditorPreferencesFilePath();
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+
+                EditorPreferences preferences = new()
+                {
+                    AutoSaveEnabled = autoSaveEnabled,
+                    CustomAutoSaveFolderPath = customAutoSaveFolderPath,
+                    ValidationWarningBeforeSaveEnabled = validationWarningBeforeSaveEnabled,
+                    ValidationPanelAutoRefreshEnabled = validationPanelAutoRefreshEnabled,
+
+                    ShowViewportGrid = showViewportGrid,
+                    ShowViewportVertexes = showViewportVertexes,
+                    ShowViewportSegments = showViewportSegments,
+                    ShowViewportDiscs = showViewportDiscs,
+                    ShowViewportPlanes = showViewportPlanes,
+                    ShowViewportGrassStripes = showViewportGrassStripes,
+                    ShowViewportInvisibleObjects = showViewportInvisibleObjects,
+                    AutoMirrorPlacement = autoMirrorPlacement,
+
+                    SnapToGrid = snapToGrid,
+                    SnapGridSize = snapGridSize,
+                    ViewportVertexSize = viewportVertexSize,
+
+                    LeftPanelWidth = savedLeftPanelWidth,
+                    RightPanelWidth = savedRightPanelWidth,
+                    BottomPanelHeight = savedBottomPanelHeight,
+                    WindowWidth = savedWindowWidth,
+                    WindowHeight = savedWindowHeight,
+                    PanelDockStates = new Dictionary<string, string>(panelDockStates)
+                };
+
+                JsonSerializerOptions options = new()
+                {
+                    WriteIndented = true,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                File.WriteAllText(path, JsonSerializer.Serialize(preferences, options));
+            }
+            catch
+            {
+                UpdateStatus("Preferences could not be saved.");
+            }
+        }
+
+        private void CaptureLayoutPreferences()
+        {
+            if (LeftPanelColumn.ActualWidth > 0)
+            {
+                savedLeftPanelWidth = LeftPanelColumn.ActualWidth;
+            }
+
+            if (RightPanelColumn.ActualWidth > 0)
+            {
+                savedRightPanelWidth = RightPanelColumn.ActualWidth;
+            }
+
+            if (BottomPanelRow.ActualHeight > 0)
+            {
+                savedBottomPanelHeight = BottomPanelRow.ActualHeight;
+            }
+
+            if (Width > 0)
+            {
+                savedWindowWidth = Width;
+            }
+
+            if (Height > 0)
+            {
+                savedWindowHeight = Height;
+            }
+        }
+
+        private void ApplySavedWindowMetrics()
+        {
+            if (savedWindowWidth >= MinWidth)
+            {
+                Width = savedWindowWidth;
+            }
+
+            if (savedWindowHeight >= MinHeight)
+            {
+                Height = savedWindowHeight;
+            }
+
+            if (savedLeftPanelWidth > 0)
+            {
+                LeftPanelColumn.Width = new GridLength(savedLeftPanelWidth);
+            }
+
+            if (savedRightPanelWidth > 0)
+            {
+                RightPanelColumn.Width = new GridLength(savedRightPanelWidth);
+            }
+
+            if (savedBottomPanelHeight > 0)
+            {
+                BottomPanelRow.Height = new GridLength(savedBottomPanelHeight);
+            }
+        }
+
+        private static string NormalizePanelDockState(string? state)
+        {
+            return state switch
+            {
+                "Left" => "Left",
+                "Right" => "Right",
+                "Bottom" => "Bottom",
+                "Floating" => "Floating",
+                _ => "Hidden"
+            };
+        }
+
+        private string GetEditorPreferencesFilePath()
+        {
+            return System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "HaxStudio",
+                "settings.json");
+        }
+
         private void SaveAsStadium()
         {
             SaveFileDialog saveFileDialog = new()
@@ -3052,6 +4191,8 @@ namespace haxballeditor
             {
                 string json = BuildStadiumJson();
                 File.WriteAllText(filePath, json);
+
+                hasUnsavedChangesForAutoSave = false;
 
                 if (validationPanelAutoRefreshEnabled)
                 {
@@ -3458,7 +4599,7 @@ namespace haxballeditor
 
         private int AddVertex(double x, double y)
         {
-            PushUndoState("Add Vertex");
+            PushUndoState(autoMirrorPlacement ? "Add Mirrored Vertex" : "Add Vertex");
             Point snapped = SnapDataPoint(new Point(x, y));
             x = snapped.X;
             y = snapped.Y;
@@ -3467,10 +4608,29 @@ namespace haxballeditor
 
             int index = stadium.Vertexes.Count - 1;
 
-            SelectVertex(index);
-            RenderStadium();
+            if (autoMirrorPlacement)
+            {
+                double mirrorX = MirrorCanvasX(x);
+                if (Math.Abs(mirrorX - x) > 0.001)
+                {
+                    stadium.Vertexes.Add(new VertexData { X = mirrorX, Y = y });
+                    int mirrorIndex = stadium.Vertexes.Count - 1;
+                    SelectMirroredPair("Vertex", index, mirrorIndex);
+                    UpdateStatus($"Vertex #{index} added with mirrored Vertex #{mirrorIndex}.");
+                }
+                else
+                {
+                    SelectVertex(index);
+                    UpdateStatus($"Vertex #{index} added on mirror axis.");
+                }
+            }
+            else
+            {
+                SelectVertex(index);
+                UpdateStatus($"Vertex #{index} added.");
+            }
 
-            UpdateStatus($"Vertex #{index} added.");
+            RenderStadium();
             UpdateObjectCount();
             UpdateObjectsList();
             UpdateJsonPreview();
@@ -3486,6 +4646,94 @@ namespace haxballeditor
                 "Large" => 7,
                 _ => 5
             };
+        }
+
+        private Brush SelectionAccentBrush => new SolidColorBrush(Color.FromRgb(255, 230, 64));
+        private Brush SelectionAccentSoftBrush => new SolidColorBrush(Color.FromArgb(95, 255, 230, 64));
+        private Brush SelectionCyanBrush => new SolidColorBrush(Color.FromRgb(47, 183, 232));
+
+        private void DrawSelectionCircle(Point center, double radius, int zIndex, Brush? stroke = null, double thickness = 2, DoubleCollection? dash = null)
+        {
+            Ellipse circle = new()
+            {
+                Width = radius * 2,
+                Height = radius * 2,
+                Fill = Brushes.Transparent,
+                Stroke = stroke ?? SelectionAccentBrush,
+                StrokeThickness = thickness,
+                StrokeDashArray = dash,
+                IsHitTestVisible = false
+            };
+
+            Canvas.SetLeft(circle, center.X - radius);
+            Canvas.SetTop(circle, center.Y - radius);
+            Panel.SetZIndex(circle, zIndex);
+            MapCanvas.Children.Add(circle);
+        }
+
+        private void DrawSelectionFilledDot(Point center, double radius, int zIndex, Brush? fill = null, Brush? stroke = null)
+        {
+            Ellipse dot = new()
+            {
+                Width = radius * 2,
+                Height = radius * 2,
+                Fill = fill ?? SelectionAccentBrush,
+                Stroke = stroke ?? Brushes.White,
+                StrokeThickness = 1.5,
+                IsHitTestVisible = false
+            };
+
+            Canvas.SetLeft(dot, center.X - radius);
+            Canvas.SetTop(dot, center.Y - radius);
+            Panel.SetZIndex(dot, zIndex);
+            MapCanvas.Children.Add(dot);
+        }
+
+        private void DrawSelectionEndpointMarkers(Point p0, Point p1, int zIndex)
+        {
+            DrawSelectionFilledDot(p0, 4.5, zIndex, SelectionAccentBrush, Brushes.White);
+            DrawSelectionFilledDot(p1, 4.5, zIndex, SelectionAccentBrush, Brushes.White);
+        }
+
+        private void DrawSelectionCenterCross(Point center, double size, int zIndex)
+        {
+            AddViewportLine(
+                new Point(center.X - size, center.Y),
+                new Point(center.X + size, center.Y),
+                Brushes.White,
+                1.4,
+                zIndex,
+                null);
+
+            AddViewportLine(
+                new Point(center.X, center.Y - size),
+                new Point(center.X, center.Y + size),
+                Brushes.White,
+                1.4,
+                zIndex,
+                null);
+        }
+
+        private void DrawSelectionNormalArrow(Point start, Vector direction, double length, int zIndex)
+        {
+            if (direction.Length < 0.0001)
+            {
+                return;
+            }
+
+            direction.Normalize();
+
+            Point end = new(start.X + direction.X * length, start.Y + direction.Y * length);
+            AddViewportLine(start, end, SelectionAccentBrush, Math.Max(1.5, ScaleLength(2)), zIndex, null);
+
+            Vector back = -direction;
+            Vector side = new(-direction.Y, direction.X);
+
+            Point arrowA = new(end.X + back.X * 10 + side.X * 5, end.Y + back.Y * 10 + side.Y * 5);
+            Point arrowB = new(end.X + back.X * 10 - side.X * 5, end.Y + back.Y * 10 - side.Y * 5);
+
+            AddViewportLine(end, arrowA, SelectionAccentBrush, 1.6, zIndex, null);
+            AddViewportLine(end, arrowB, SelectionAccentBrush, 1.6, zIndex, null);
         }
 
         private void DrawVertex(double x, double y, int index)
@@ -3521,6 +4769,13 @@ namespace haxballeditor
             hitShape.MouseLeftButtonDown += VertexShape_MouseLeftButtonDown;
             MapCanvas.Children.Add(hitShape);
 
+            if (isSelected)
+            {
+                DrawSelectionCircle(screenPoint, Math.Max(8, visualSize + 5), 30, SelectionAccentSoftBrush, 3);
+                DrawSelectionCircle(screenPoint, Math.Max(5, visualSize + 2), 31, SelectionAccentBrush, 1.5);
+                DrawSelectionCenterCross(screenPoint, 7, 33);
+            }
+
             Ellipse vertexDot = new()
             {
                 Width = visualSize,
@@ -3528,8 +4783,8 @@ namespace haxballeditor
                 Fill = isSelected
                     ? new SolidColorBrush(Color.FromRgb(255, 235, 0))
                     : new SolidColorBrush(Color.FromRgb(255, 0, 255)),
-                Stroke = Brushes.Transparent,
-                StrokeThickness = 0,
+                Stroke = isSelected ? Brushes.White : Brushes.Transparent,
+                StrokeThickness = isSelected ? 1.2 : 0,
                 IsHitTestVisible = false
             };
 
@@ -3776,12 +5031,12 @@ namespace haxballeditor
 
         private int AddDisc(double x, double y, double radius)
         {
-            PushUndoState("Add Disc");
+            PushUndoState(autoMirrorPlacement ? "Add Mirrored Disc" : "Add Disc");
             Point snapped = SnapDataPoint(new Point(x, y));
             x = snapped.X;
             y = snapped.Y;
 
-            stadium.Discs.Add(new DiscData
+            DiscData disc = new()
             {
                 X = x,
                 Y = y,
@@ -3791,17 +5046,41 @@ namespace haxballeditor
                 InvMass = null,
                 CGroup = null,
                 CMask = null
-            });
+            };
+
+            stadium.Discs.Add(disc);
 
             int index = stadium.Discs.Count - 1;
 
-            SelectDisc(index);
+            if (autoMirrorPlacement)
+            {
+                DiscData mirroredDisc = CloneData(disc);
+                mirroredDisc.X = MirrorCanvasX(mirroredDisc.X);
+
+                if (Math.Abs(mirroredDisc.X - disc.X) > 0.001)
+                {
+                    stadium.Discs.Add(mirroredDisc);
+                    int mirrorIndex = stadium.Discs.Count - 1;
+                    SelectMirroredPair("Disc", index, mirrorIndex);
+                    UpdateStatus($"Disc #{index} added with mirrored Disc #{mirrorIndex}.");
+                }
+                else
+                {
+                    SelectDisc(index);
+                    UpdateStatus($"Disc #{index} added on mirror axis.");
+                }
+            }
+            else
+            {
+                SelectDisc(index);
+                UpdateStatus($"Disc #{index} added.");
+            }
+
             RenderStadium();
             UpdateObjectCount();
             UpdateObjectsList();
             UpdateJsonPreview();
 
-            UpdateStatus($"Disc #{index} added.");
             return index;
         }
 
@@ -3809,6 +5088,7 @@ namespace haxballeditor
         {
             if (IsObjectHidden("Disc", index)) return;
             bool isSelected = selectedDiscIndex == index || IsObjectSelected("Disc", index);
+            if (!showViewportDiscs && !isSelected) return;
             bool isVisible = IsDiscVisible(disc);
 
             if (!isVisible && !showViewportInvisibleObjects && !isSelected)
@@ -3842,20 +5122,10 @@ namespace haxballeditor
 
             if (isSelected)
             {
-                Ellipse selectedRing = new()
-                {
-                    Width = screenRadius * 2,
-                    Height = screenRadius * 2,
-                    Fill = Brushes.Transparent,
-                    Stroke = new SolidColorBrush(Color.FromArgb(220, 255, 255, 0)),
-                    StrokeThickness = Math.Max(2, ScaleLength(5)),
-                    IsHitTestVisible = false
-                };
-
-                Canvas.SetLeft(selectedRing, screenPoint.X - screenRadius);
-                Canvas.SetTop(selectedRing, screenPoint.Y - screenRadius);
-                Panel.SetZIndex(selectedRing, 8);
-                MapCanvas.Children.Add(selectedRing);
+                DrawSelectionCircle(screenPoint, screenRadius + 5, 8, SelectionAccentSoftBrush, Math.Max(3, ScaleLength(5)));
+                DrawSelectionCircle(screenPoint, screenRadius, 9, SelectionAccentBrush, Math.Max(1.5, ScaleLength(2)));
+                DrawSelectionCircle(screenPoint, Math.Max(4, screenRadius * 0.35), 10, SelectionCyanBrush, 1.4, new DoubleCollection { 3, 3 });
+                DrawSelectionCenterCross(screenPoint, Math.Min(10, Math.Max(5, screenRadius * 0.45)), 11);
             }
 
             Ellipse discShape = new()
@@ -3934,28 +5204,53 @@ namespace haxballeditor
 
         private int AddGoal(Point p0, Point p1, string team)
         {
-            PushUndoState("Add Goal");
+            PushUndoState(autoMirrorPlacement ? "Add Mirrored Goal" : "Add Goal");
             p0 = SnapDataPoint(p0);
             p1 = SnapDataPoint(p1);
 
-            stadium.Goals.Add(new GoalData
+            GoalData goal = new()
             {
                 X0 = p0.X,
                 Y0 = p0.Y,
                 X1 = p1.X,
                 Y1 = p1.Y,
                 Team = NormalizeGoalTeam(team)
-            });
+            };
+
+            stadium.Goals.Add(goal);
 
             int index = stadium.Goals.Count - 1;
 
-            SelectGoal(index);
+            if (autoMirrorPlacement)
+            {
+                GoalData mirroredGoal = CloneData(goal);
+                mirroredGoal.X0 = MirrorCanvasX(mirroredGoal.X0);
+                mirroredGoal.X1 = MirrorCanvasX(mirroredGoal.X1);
+
+                if (Math.Abs(mirroredGoal.X0 - goal.X0) > 0.001 || Math.Abs(mirroredGoal.X1 - goal.X1) > 0.001)
+                {
+                    stadium.Goals.Add(mirroredGoal);
+                    int mirrorIndex = stadium.Goals.Count - 1;
+                    SelectMirroredPair("Goal", index, mirrorIndex);
+                    UpdateStatus($"Goal #{index} added with mirrored Goal #{mirrorIndex}.");
+                }
+                else
+                {
+                    SelectGoal(index);
+                    UpdateStatus($"Goal #{index} added on mirror axis.");
+                }
+            }
+            else
+            {
+                SelectGoal(index);
+                UpdateStatus($"Goal #{index} added.");
+            }
+
             RenderStadium();
             UpdateObjectCount();
             UpdateObjectsList();
             UpdateJsonPreview();
 
-            UpdateStatus($"Goal #{index} added.");
             return index;
         }
 
@@ -3968,7 +5263,9 @@ namespace haxballeditor
 
             if (isSelected)
             {
-                AddViewportLine(p0, p1, new SolidColorBrush(Color.FromArgb(220, 255, 255, 0)), Math.Max(2, ScaleLength(4)), 8, null);
+                AddViewportLine(p0, p1, SelectionAccentSoftBrush, Math.Max(5, ScaleLength(8)), 8, null);
+                AddViewportLine(p0, p1, SelectionAccentBrush, Math.Max(2, ScaleLength(4)), 9, null);
+                DrawSelectionEndpointMarkers(p0, p1, 29);
             }
 
             bool blue = NormalizeGoalTeam(goal.Team) == "blue";
@@ -4004,9 +5301,9 @@ namespace haxballeditor
         {
             Ellipse point = new()
             {
-                Width = 16,
-                Height = 16,
-                Fill = Brushes.Gold,
+                Width = 18,
+                Height = 18,
+                Fill = SelectionAccentBrush,
                 Stroke = Brushes.White,
                 StrokeThickness = 2,
                 Cursor = Cursors.SizeAll,
@@ -4077,7 +5374,7 @@ namespace haxballeditor
 
         private int AddPlaneFromLine(Point p0, Point p1)
         {
-            PushUndoState("Add Plane");
+            PushUndoState(autoMirrorPlacement ? "Add Mirrored Plane" : "Add Plane");
             p0 = SnapDataPoint(p0);
             p1 = SnapDataPoint(p1);
 
@@ -4120,13 +5417,35 @@ namespace haxballeditor
 
             int index = stadium.Planes.Count - 1;
 
-            SelectPlane(index);
+            if (autoMirrorPlacement)
+            {
+                PlaneData mirroredPlane = CloneData(plane);
+                if (mirroredPlane.Normal != null && mirroredPlane.Normal.Count >= 2)
+                {
+                    mirroredPlane.Normal[0] = -mirroredPlane.Normal[0];
+                    mirroredPlane.Dist = -mirroredPlane.Dist;
+                    stadium.Planes.Add(mirroredPlane);
+                    int mirrorIndex = stadium.Planes.Count - 1;
+                    SelectMirroredPair("Plane", index, mirrorIndex);
+                    UpdateStatus($"Plane #{index} added with mirrored Plane #{mirrorIndex}.");
+                }
+                else
+                {
+                    SelectPlane(index);
+                    UpdateStatus($"Plane #{index} added.");
+                }
+            }
+            else
+            {
+                SelectPlane(index);
+                UpdateStatus($"Plane #{index} added.");
+            }
+
             RenderStadium();
             UpdateObjectCount();
             UpdateObjectsList();
             UpdateJsonPreview();
 
-            UpdateStatus($"Plane #{index} added.");
             return index;
         }
 
@@ -4162,7 +5481,12 @@ namespace haxballeditor
 
             if (isSelected)
             {
-                AddViewportLine(a, b, new SolidColorBrush(Color.FromArgb(220, 255, 255, 0)), Math.Max(2, ScaleLength(3)), 7, null);
+                AddViewportLine(a, b, SelectionAccentSoftBrush, Math.Max(4, ScaleLength(6)), 7, new DoubleCollection { 12, 6 });
+                AddViewportLine(a, b, SelectionAccentBrush, Math.Max(2, ScaleLength(3)), 8, null);
+
+                Point planePoint = DataToScreenPoint(centerX + px, centerY + py);
+                DrawSelectionFilledDot(planePoint, 5, 29, SelectionAccentBrush, Brushes.White);
+                DrawSelectionNormalArrow(planePoint, new Vector(nx, ny), 46, 30);
             }
 
             Line planeLine = new()
@@ -4186,7 +5510,7 @@ namespace haxballeditor
 
         private int AddRedSpawn(double x, double y)
         {
-            PushUndoState("Add Red Spawn");
+            PushUndoState(autoMirrorPlacement ? "Add Mirrored Red Spawn" : "Add Red Spawn");
             Point snapped = SnapDataPoint(new Point(x, y));
             x = snapped.X;
             y = snapped.Y;
@@ -4195,19 +5519,39 @@ namespace haxballeditor
 
             int index = stadium.RedSpawnPoints.Count - 1;
 
-            SelectRedSpawn(index);
+            if (autoMirrorPlacement)
+            {
+                double mirrorX = MirrorCanvasX(x);
+                if (Math.Abs(mirrorX - x) > 0.001)
+                {
+                    stadium.RedSpawnPoints.Add(new SpawnPointData { X = mirrorX, Y = y });
+                    int mirrorIndex = stadium.RedSpawnPoints.Count - 1;
+                    SelectMirroredPair("RedSpawn", index, mirrorIndex);
+                    UpdateStatus($"Red Spawn #{index} added with mirrored Red Spawn #{mirrorIndex}.");
+                }
+                else
+                {
+                    SelectRedSpawn(index);
+                    UpdateStatus($"Red Spawn #{index} added on mirror axis.");
+                }
+            }
+            else
+            {
+                SelectRedSpawn(index);
+                UpdateStatus($"Red Spawn #{index} added.");
+            }
+
             RenderStadium();
             UpdateObjectCount();
             UpdateObjectsList();
             UpdateJsonPreview();
 
-            UpdateStatus($"Red Spawn #{index} added.");
             return index;
         }
 
         private int AddBlueSpawn(double x, double y)
         {
-            PushUndoState("Add Blue Spawn");
+            PushUndoState(autoMirrorPlacement ? "Add Mirrored Blue Spawn" : "Add Blue Spawn");
             Point snapped = SnapDataPoint(new Point(x, y));
             x = snapped.X;
             y = snapped.Y;
@@ -4216,13 +5560,33 @@ namespace haxballeditor
 
             int index = stadium.BlueSpawnPoints.Count - 1;
 
-            SelectBlueSpawn(index);
+            if (autoMirrorPlacement)
+            {
+                double mirrorX = MirrorCanvasX(x);
+                if (Math.Abs(mirrorX - x) > 0.001)
+                {
+                    stadium.BlueSpawnPoints.Add(new SpawnPointData { X = mirrorX, Y = y });
+                    int mirrorIndex = stadium.BlueSpawnPoints.Count - 1;
+                    SelectMirroredPair("BlueSpawn", index, mirrorIndex);
+                    UpdateStatus($"Blue Spawn #{index} added with mirrored Blue Spawn #{mirrorIndex}.");
+                }
+                else
+                {
+                    SelectBlueSpawn(index);
+                    UpdateStatus($"Blue Spawn #{index} added on mirror axis.");
+                }
+            }
+            else
+            {
+                SelectBlueSpawn(index);
+                UpdateStatus($"Blue Spawn #{index} added.");
+            }
+
             RenderStadium();
             UpdateObjectCount();
             UpdateObjectsList();
             UpdateJsonPreview();
 
-            UpdateStatus($"Blue Spawn #{index} added.");
             return index;
         }
 
@@ -4235,6 +5599,13 @@ namespace haxballeditor
                 : selectedBlueSpawnIndex == index || IsObjectSelected("BlueSpawn", index);
 
             Point screenPoint = DataToScreenPoint(spawn.X, spawn.Y);
+
+            if (isSelected)
+            {
+                DrawSelectionCircle(screenPoint, 12, 24, isRed ? new SolidColorBrush(Color.FromArgb(130, 248, 113, 113)) : new SolidColorBrush(Color.FromArgb(130, 96, 165, 250)), 4);
+                DrawSelectionCircle(screenPoint, 8, 25, SelectionAccentBrush, 1.5);
+                DrawSelectionCenterCross(screenPoint, 8, 27);
+            }
 
             Ellipse spawnShape = new()
             {
@@ -4286,6 +5657,12 @@ namespace haxballeditor
 
             Point p0 = DataToScreenPoint(d0.X, d0.Y);
             Point p1 = DataToScreenPoint(d1.X, d1.Y);
+
+            if (isSelected)
+            {
+                AddViewportLine(p0, p1, SelectionAccentSoftBrush, 8, 5, new DoubleCollection { 6, 4 });
+                DrawSelectionEndpointMarkers(p0, p1, 28);
+            }
 
             Line line = new()
             {
@@ -4922,6 +6299,18 @@ namespace haxballeditor
             ReleaseCanvasMouseIfSafe();
         }
 
+        private void RequestCurveDragRender(bool force = false)
+        {
+            DateTime now = DateTime.UtcNow;
+            if (!force && (now - lastCurveDragRenderTime).TotalMilliseconds < CurveDragRenderIntervalMs)
+            {
+                return;
+            }
+
+            lastCurveDragRenderTime = now;
+            RenderStadium();
+        }
+
         private void BeginCurveHandleDrag(int segmentIndex)
         {
             if (segmentIndex < 0 || segmentIndex >= stadium.Segments.Count) return;
@@ -4934,6 +6323,7 @@ namespace haxballeditor
 
             isDraggingCurveHandle = true;
             draggingCurveSegmentIndex = segmentIndex;
+            lastCurveDragRenderTime = DateTime.MinValue;
 
             MapCanvas.CaptureMouse();
         }
@@ -4971,24 +6361,42 @@ namespace haxballeditor
             double angleRad = 4.0 * Math.Atan(absOffset / halfChord);
             double angleDeg = angleRad * 180.0 / Math.PI;
 
-            double curve = Math.Round(Math.Sign(signedOffset) * angleDeg, 2);
+            // Invert the sign here too, so dragging the handle toward the visible
+            // HaxBall side writes the same curve sign that the game expects.
+            double curve = Math.Round(-Math.Sign(signedOffset) * angleDeg, 2);
 
             segment.Curve = Math.Abs(curve) < 0.5 ? null : curve;
 
-            SelectSegment(segmentIndex);
-            RenderStadium();
-            UpdateObjectsList();
-            UpdateJsonPreview();
+            if (selectedSegmentIndex != segmentIndex)
+            {
+                SelectSegment(segmentIndex);
+            }
+            else if (CurveTextBox != null)
+            {
+                CurveTextBox.Text = (segment.Curve ?? 0).ToString("0.##", CultureInfo.InvariantCulture);
+            }
+
+            RequestCurveDragRender();
         }
 
         private void FinishCurveHandleDrag()
         {
+            int? finishedSegmentIndex = draggingCurveSegmentIndex;
+
             isDraggingCurveHandle = false;
             draggingCurveSegmentIndex = null;
 
             ReleaseCanvasMouseIfSafe();
+
+            if (finishedSegmentIndex != null)
+            {
+                SelectSegment(finishedSegmentIndex.Value);
+            }
+
+            RenderStadium();
             UpdateJsonPreview();
             UpdateObjectsList();
+            UpdateStatus("Segment curve updated.");
         }
 
         private void CancelCurveHandleDrag()
@@ -4996,6 +6404,7 @@ namespace haxballeditor
             isDraggingCurveHandle = false;
             draggingCurveSegmentIndex = null;
             ReleaseCanvasMouseIfSafe();
+            RenderStadium();
         }
 
         private void UpdateInspectorForSelection(string selectionType)
@@ -5689,10 +7098,46 @@ namespace haxballeditor
                 return;
             }
 
-            AddSegment(startVertexIndex, endVertexIndex);
-            CancelSegmentDrag();
+            int segmentIndex = AddSegment(startVertexIndex, endVertexIndex);
 
-            UpdateStatus($"Segment added between Vertex #{startVertexIndex} and Vertex #{endVertexIndex}.");
+            if (autoMirrorPlacement)
+            {
+                VertexData startVertex = stadium.Vertexes[startVertexIndex];
+                VertexData endVertex = stadium.Vertexes[endVertexIndex];
+
+                VertexData mirroredStart = CloneData(startVertex);
+                VertexData mirroredEnd = CloneData(endVertex);
+                mirroredStart.X = MirrorCanvasX(mirroredStart.X);
+                mirroredEnd.X = MirrorCanvasX(mirroredEnd.X);
+
+                if (Math.Abs(mirroredStart.X - startVertex.X) > 0.001 || Math.Abs(mirroredEnd.X - endVertex.X) > 0.001)
+                {
+                    stadium.Vertexes.Add(mirroredStart);
+                    int mirroredStartIndex = stadium.Vertexes.Count - 1;
+                    stadium.Vertexes.Add(mirroredEnd);
+                    int mirroredEndIndex = stadium.Vertexes.Count - 1;
+
+                    int mirroredSegmentIndex = AddSegment(mirroredStartIndex, mirroredEndIndex, true);
+                    SelectMirroredPair("Segment", segmentIndex, mirroredSegmentIndex);
+                    UpdateStatus($"Segment #{segmentIndex} added with mirrored Segment #{mirroredSegmentIndex}.");
+                }
+                else
+                {
+                    SelectSegment(segmentIndex);
+                    UpdateStatus($"Segment #{segmentIndex} added on mirror axis.");
+                }
+
+                RenderStadium();
+                UpdateObjectCount();
+                UpdateObjectsList();
+                UpdateJsonPreview();
+            }
+            else
+            {
+                UpdateStatus($"Segment added between Vertex #{startVertexIndex} and Vertex #{endVertexIndex}.");
+            }
+
+            CancelSegmentDrag();
         }
 
         private void CancelSegmentDrag()
@@ -5735,7 +7180,7 @@ namespace haxballeditor
             return Math.Sqrt(dx * dx + dy * dy);
         }
 
-        private void AddSegment(int v0, int v1)
+        private int AddSegment(int v0, int v1, bool deferRefresh = false)
         {
             stadium.Segments.Add(new SegmentData
             {
@@ -5750,11 +7195,16 @@ namespace haxballeditor
 
             int index = stadium.Segments.Count - 1;
 
-            SelectSegment(index);
-            RenderStadium();
-            UpdateObjectCount();
-            UpdateObjectsList();
-            UpdateJsonPreview();
+            if (!deferRefresh)
+            {
+                SelectSegment(index);
+                RenderStadium();
+                UpdateObjectCount();
+                UpdateObjectsList();
+                UpdateJsonPreview();
+            }
+
+            return index;
         }
 
         private bool TryGetSegmentPoints(SegmentData segment, out Point p0, out Point p1)
@@ -5777,6 +7227,7 @@ namespace haxballeditor
         private void DrawSegment(int segmentIndex, int v0, int v1)
         {
             if (segmentIndex < 0 || segmentIndex >= stadium.Segments.Count) return;
+            if (!showViewportSegments && selectedSegmentIndex != segmentIndex && !IsObjectSelected("Segment", segmentIndex)) return;
             if (IsObjectHidden("Segment", segmentIndex)) return;
 
             SegmentData segment = stadium.Segments[segmentIndex];
@@ -5798,10 +7249,28 @@ namespace haxballeditor
 
             if (isSelected)
             {
-                Shape selectionShape = CreateSegmentShape(screenP0, screenP1, segment.Curve, new SolidColorBrush(Color.FromArgb(220, 255, 255, 0)), Math.Max(2, ScaleLength(isVisible ? 5 : 3)));
+                bool lightweightCurveDrag = isDraggingCurveHandle && draggingCurveSegmentIndex == segmentIndex;
+
+                Shape selectionShape = CreateSegmentShape(
+                    screenP0,
+                    screenP1,
+                    segment.Curve,
+                    lightweightCurveDrag ? SelectionAccentBrush : SelectionAccentSoftBrush,
+                    lightweightCurveDrag ? Math.Max(2, ScaleLength(3)) : Math.Max(4, ScaleLength(isVisible ? 8 : 5)));
+
                 selectionShape.IsHitTestVisible = false;
                 Panel.SetZIndex(selectionShape, 5);
                 MapCanvas.Children.Add(selectionShape);
+
+                if (!lightweightCurveDrag)
+                {
+                    Shape selectionOutline = CreateSegmentShape(screenP0, screenP1, segment.Curve, SelectionAccentBrush, Math.Max(2, ScaleLength(isVisible ? 4 : 3)));
+                    selectionOutline.IsHitTestVisible = false;
+                    Panel.SetZIndex(selectionOutline, 6);
+                    MapCanvas.Children.Add(selectionOutline);
+
+                    DrawSelectionEndpointMarkers(screenP0, screenP1, 28);
+                }
             }
 
             if (isVisible)
@@ -5828,7 +7297,13 @@ namespace haxballeditor
 
             if (isSelected)
             {
-                DrawCurveHandle(segmentIndex, screenP0, screenP1, GetHaxBallArcHandlePoint(screenP0, screenP1, segment.Curve ?? 0));
+                Point handlePoint = GetHaxBallArcHandlePoint(screenP0, screenP1, segment.Curve ?? 0);
+                DrawCurveHandle(segmentIndex, screenP0, screenP1, handlePoint);
+
+                if (!isDraggingCurveHandle || draggingCurveSegmentIndex != segmentIndex)
+                {
+                    DrawSelectionFilledDot(handlePoint, 3.5, 29, SelectionCyanBrush, Brushes.White);
+                }
             }
         }
 
@@ -5950,7 +7425,11 @@ namespace haxballeditor
                 return new PathGeometry();
             }
 
-            double absCurve = Math.Abs(curve);
+            // HaxBall's curve sign is opposite of WPF ArcSegment's screen-space sweep
+            // direction. Keep the exported curve value unchanged, but invert the sign
+            // only while rendering the viewport preview.
+            double viewportCurve = -curve;
+            double absCurve = Math.Abs(viewportCurve);
 
             if (absCurve >= 359.9)
             {
@@ -5962,7 +7441,7 @@ namespace haxballeditor
 
             bool isLargeArc = absCurve > 180.0;
 
-            SweepDirection sweepDirection = curve > 0
+            SweepDirection sweepDirection = viewportCurve > 0
                 ? SweepDirection.Counterclockwise
                 : SweepDirection.Clockwise;
 
@@ -5999,7 +7478,10 @@ namespace haxballeditor
                 return new Point((p0.X + p1.X) / 2.0, (p0.Y + p1.Y) / 2.0);
             }
 
-            double absCurve = Math.Abs(curve);
+            // Same sign correction as CreateHaxBallArcGeometry: the handle should
+            // appear on the same side as HaxBall's actual curve preview.
+            double viewportCurve = -curve;
+            double absCurve = Math.Abs(viewportCurve);
 
             if (absCurve >= 359.9)
             {
@@ -6011,7 +7493,7 @@ namespace haxballeditor
 
             double normalX = -dy / chordLength;
             double normalY = dx / chordLength;
-            double sign = curve >= 0 ? 1.0 : -1.0;
+            double sign = viewportCurve >= 0 ? 1.0 : -1.0;
 
             Point mid = new Point((p0.X + p1.X) / 2.0, (p0.Y + p1.Y) / 2.0);
 
@@ -6525,6 +8007,87 @@ namespace haxballeditor
             return MapCanvas.ActualHeight / 2.0;
         }
 
+        private void TranslateCanvasAnchoredStadiumObjects(double deltaX, double deltaY)
+        {
+            if (Math.Abs(deltaX) < 0.0001 && Math.Abs(deltaY) < 0.0001)
+            {
+                return;
+            }
+
+            foreach (VertexData vertex in stadium.Vertexes)
+            {
+                vertex.X += deltaX;
+                vertex.Y += deltaY;
+            }
+
+            foreach (DiscData disc in stadium.Discs)
+            {
+                disc.X += deltaX;
+                disc.Y += deltaY;
+            }
+
+            foreach (GoalData goal in stadium.Goals)
+            {
+                goal.X0 += deltaX;
+                goal.Y0 += deltaY;
+                goal.X1 += deltaX;
+                goal.Y1 += deltaY;
+            }
+
+            foreach (SpawnPointData spawn in stadium.RedSpawnPoints)
+            {
+                spawn.X += deltaX;
+                spawn.Y += deltaY;
+            }
+
+            foreach (SpawnPointData spawn in stadium.BlueSpawnPoints)
+            {
+                spawn.X += deltaX;
+                spawn.Y += deltaY;
+            }
+
+            TranslateViewportDragState(deltaX, deltaY);
+        }
+
+        private void TranslateViewportDragState(double deltaX, double deltaY)
+        {
+            segmentDragStartPoint = new Point(segmentDragStartPoint.X + deltaX, segmentDragStartPoint.Y + deltaY);
+            goalDragStartPoint = new Point(goalDragStartPoint.X + deltaX, goalDragStartPoint.Y + deltaY);
+            planeDragStartPoint = new Point(planeDragStartPoint.X + deltaX, planeDragStartPoint.Y + deltaY);
+            selectedItemsDragStartData = new Point(selectedItemsDragStartData.X + deltaX, selectedItemsDragStartData.Y + deltaY);
+
+            foreach (int key in selectedVertexDragStartPositions.Keys.ToList())
+            {
+                Point p = selectedVertexDragStartPositions[key];
+                selectedVertexDragStartPositions[key] = new Point(p.X + deltaX, p.Y + deltaY);
+            }
+
+            foreach (int key in selectedDiscDragStartPositions.Keys.ToList())
+            {
+                Point p = selectedDiscDragStartPositions[key];
+                selectedDiscDragStartPositions[key] = new Point(p.X + deltaX, p.Y + deltaY);
+            }
+
+            foreach (int key in selectedGoalDragStartPositions.Keys.ToList())
+            {
+                (double X0, double Y0, double X1, double Y1) p = selectedGoalDragStartPositions[key];
+                selectedGoalDragStartPositions[key] = (p.X0 + deltaX, p.Y0 + deltaY, p.X1 + deltaX, p.Y1 + deltaY);
+            }
+
+            foreach (int key in selectedRedSpawnDragStartPositions.Keys.ToList())
+            {
+                Point p = selectedRedSpawnDragStartPositions[key];
+                selectedRedSpawnDragStartPositions[key] = new Point(p.X + deltaX, p.Y + deltaY);
+            }
+
+            foreach (int key in selectedBlueSpawnDragStartPositions.Keys.ToList())
+            {
+                Point p = selectedBlueSpawnDragStartPositions[key];
+                selectedBlueSpawnDragStartPositions[key] = new Point(p.X + deltaX, p.Y + deltaY);
+            }
+        }
+
+
         private void ReleaseCanvasMouseIfSafe()
         {
             bool anyDrag =
@@ -6588,6 +8151,127 @@ namespace haxballeditor
         private double ScaleLength(double value)
         {
             return value * viewportZoom;
+        }
+
+        private void ViewportGridButton_Click(object sender, RoutedEventArgs e)
+        {
+            showViewportGrid = !showViewportGrid;
+            RenderStadium();
+            UpdateViewportMiniToolbarUi();
+            SaveEditorPreferences();
+            UpdateStatus(showViewportGrid ? "Viewport grid enabled." : "Viewport grid disabled.");
+        }
+
+        private void ViewportSnapButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetSnapToGrid(!snapToGrid, true, true);
+        }
+
+        private void ViewportVertexesButton_Click(object sender, RoutedEventArgs e)
+        {
+            showViewportVertexes = !showViewportVertexes;
+            RenderStadium();
+            UpdateViewportMiniToolbarUi();
+            SaveEditorPreferences();
+            UpdateStatus(showViewportVertexes ? "Vertex display enabled." : "Vertex display disabled.");
+        }
+
+        private void ViewportSegmentsButton_Click(object sender, RoutedEventArgs e)
+        {
+            showViewportSegments = !showViewportSegments;
+            RenderStadium();
+            UpdateViewportMiniToolbarUi();
+            SaveEditorPreferences();
+            UpdateStatus(showViewportSegments ? "Segment display enabled." : "Segment display disabled.");
+        }
+
+        private void ViewportDiscsButton_Click(object sender, RoutedEventArgs e)
+        {
+            showViewportDiscs = !showViewportDiscs;
+            RenderStadium();
+            UpdateViewportMiniToolbarUi();
+            SaveEditorPreferences();
+            UpdateStatus(showViewportDiscs ? "Disc display enabled." : "Disc display disabled.");
+        }
+
+        private void ViewportPlanesButton_Click(object sender, RoutedEventArgs e)
+        {
+            showViewportPlanes = !showViewportPlanes;
+            RenderStadium();
+            UpdateViewportMiniToolbarUi();
+            SaveEditorPreferences();
+            UpdateStatus(showViewportPlanes ? "Plane display enabled." : "Plane display disabled.");
+        }
+
+        private void ViewportInvisibleButton_Click(object sender, RoutedEventArgs e)
+        {
+            showViewportInvisibleObjects = !showViewportInvisibleObjects;
+            RenderStadium();
+            UpdateViewportMiniToolbarUi();
+            SaveEditorPreferences();
+            UpdateStatus(showViewportInvisibleObjects ? "Invisible object preview enabled." : "Invisible object preview disabled.");
+        }
+
+        private void ViewportMirrorButton_Click(object sender, RoutedEventArgs e)
+        {
+            autoMirrorPlacement = !autoMirrorPlacement;
+            UpdateViewportMiniToolbarUi();
+            SaveEditorPreferences();
+            UpdateStatus(autoMirrorPlacement
+                ? "Mirror Mode enabled. Newly placed objects will be copied to the opposite side."
+                : "Mirror Mode disabled.");
+        }
+
+        private void ViewportResetButton_Click(object sender, RoutedEventArgs e)
+        {
+            ResetViewport();
+        }
+
+        private void UpdateViewportMiniToolbarUi()
+        {
+            SetViewportMiniButtonState(ViewportGridButton, showViewportGrid);
+            SetViewportMiniButtonState(ViewportSnapButton, snapToGrid);
+            SetViewportMiniButtonState(ViewportVertexesButton, showViewportVertexes);
+            SetViewportMiniButtonState(ViewportSegmentsButton, showViewportSegments);
+            SetViewportMiniButtonState(ViewportDiscsButton, showViewportDiscs);
+            SetViewportMiniButtonState(ViewportPlanesButton, showViewportPlanes);
+            SetViewportMiniButtonState(ViewportInvisibleButton, showViewportInvisibleObjects);
+            SetViewportMiniButtonState(ViewportMirrorButton, autoMirrorPlacement);
+
+            if (ViewportInvisibleButton != null)
+            {
+                UpdatePackIconKind(ViewportInvisibleButton, showViewportInvisibleObjects ? "EyeOutline" : "EyeOffOutline");
+            }
+        }
+
+        private void SetViewportMiniButtonState(Button? button, bool isActive)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.Style = (Style)FindResource(isActive ? "ViewportMiniButtonActive" : "ViewportMiniButton");
+        }
+
+        private static void UpdatePackIconKind(DependencyObject root, string iconName)
+        {
+            if (!Enum.TryParse(iconName, out PackIconKind parsedKind))
+            {
+                return;
+            }
+
+            if (root is PackIcon icon)
+            {
+                icon.Kind = parsedKind;
+                return;
+            }
+
+            int childCount = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < childCount; i++)
+            {
+                UpdatePackIconKind(VisualTreeHelper.GetChild(root, i), iconName);
+            }
         }
 
         private void ResetViewport()
@@ -7726,19 +9410,52 @@ namespace haxballeditor
                 return;
             }
 
-            undoStack.Push(CreateEditorSnapshot());
-            redoStack.Clear();
+            hasUnsavedChangesForAutoSave = true;
 
+            undoStack.Push(CreateEditorSnapshot());
+            undoDescriptionStack.Push(string.IsNullOrWhiteSpace(reason) ? "Edit Stadium" : reason.Trim());
+            redoStack.Clear();
+            redoDescriptionStack.Clear();
+
+            TrimHistoryStacks();
+            UpdateHistoryPanel();
+        }
+
+        private void TrimHistoryStacks()
+        {
             const int maxHistory = 80;
-            if (undoStack.Count > maxHistory)
+            TrimStackPair(undoStack, undoDescriptionStack, maxHistory);
+            TrimStackPair(redoStack, redoDescriptionStack, maxHistory);
+        }
+
+        private static void TrimStackPair(Stack<string> snapshots, Stack<string> descriptions, int maxCount)
+        {
+            if (snapshots.Count <= maxCount && descriptions.Count <= maxCount)
             {
-                string[] items = undoStack.ToArray();
-                undoStack.Clear();
-                for (int i = Math.Min(items.Length, maxHistory) - 1; i >= 0; i--)
-                {
-                    undoStack.Push(items[i]);
-                }
+                return;
             }
+
+            string[] snapshotItems = snapshots.ToArray();
+            string[] descriptionItems = descriptions.ToArray();
+
+            snapshots.Clear();
+            descriptions.Clear();
+
+            int count = Math.Min(Math.Min(snapshotItems.Length, descriptionItems.Length), maxCount);
+            for (int i = count - 1; i >= 0; i--)
+            {
+                snapshots.Push(snapshotItems[i]);
+                descriptions.Push(descriptionItems[i]);
+            }
+        }
+
+        private void ClearHistoryStacks()
+        {
+            undoStack.Clear();
+            redoStack.Clear();
+            undoDescriptionStack.Clear();
+            redoDescriptionStack.Clear();
+            UpdateHistoryPanel();
         }
 
         private void RestoreEditorSnapshot(string snapshot)
@@ -7769,6 +9486,7 @@ namespace haxballeditor
                 UpdateObjectCount();
                 UpdateObjectsList();
                 UpdateJsonPreview();
+                UpdateHistoryPanel();
             }
             finally
             {
@@ -7781,12 +9499,18 @@ namespace haxballeditor
             if (undoStack.Count == 0)
             {
                 UpdateStatus("Nothing to undo.");
+                UpdateHistoryPanel();
                 return;
             }
 
+            string undoDescription = undoDescriptionStack.Count > 0 ? undoDescriptionStack.Pop() : "Edit Stadium";
+
             redoStack.Push(CreateEditorSnapshot());
+            redoDescriptionStack.Push(undoDescription);
+
             RestoreEditorSnapshot(undoStack.Pop());
-            UpdateStatus("Undo applied.");
+            UpdateHistoryPanel();
+            UpdateStatus($"Undo applied: {undoDescription}.");
         }
 
         private void RedoLastAction()
@@ -7794,19 +9518,197 @@ namespace haxballeditor
             if (redoStack.Count == 0)
             {
                 UpdateStatus("Nothing to redo.");
+                UpdateHistoryPanel();
                 return;
             }
 
+            string redoDescription = redoDescriptionStack.Count > 0 ? redoDescriptionStack.Pop() : "Edit Stadium";
+
             undoStack.Push(CreateEditorSnapshot());
+            undoDescriptionStack.Push(redoDescription);
+
             RestoreEditorSnapshot(redoStack.Pop());
-            UpdateStatus("Redo applied.");
+            UpdateHistoryPanel();
+            UpdateStatus($"Redo applied: {redoDescription}.");
         }
+
+        private void UpdateHistoryPanel()
+        {
+            if (HistoryListBox == null || HistorySummaryText == null)
+            {
+                return;
+            }
+
+            HistoryListBox.Items.Clear();
+
+            if (HistoryUndoButton != null)
+            {
+                HistoryUndoButton.IsEnabled = undoStack.Count > 0;
+            }
+
+            if (HistoryRedoButton != null)
+            {
+                HistoryRedoButton.IsEnabled = redoStack.Count > 0;
+            }
+
+            HistorySummaryText.Text = $"{undoStack.Count} undo action(s) • {redoStack.Count} redo action(s)";
+
+            if (undoStack.Count == 0 && redoStack.Count == 0)
+            {
+                HistoryListBox.Items.Add(CreateHistoryEmptyItem());
+                return;
+            }
+
+            int undoIndex = 0;
+            foreach (string description in undoDescriptionStack)
+            {
+                HistoryListBox.Items.Add(CreateHistoryListItem(description, "Undo", undoIndex == 0, undoIndex + 1));
+                undoIndex++;
+            }
+
+            int redoIndex = 0;
+            foreach (string description in redoDescriptionStack)
+            {
+                HistoryListBox.Items.Add(CreateHistoryListItem(description, "Redo", redoIndex == 0, redoIndex + 1));
+                redoIndex++;
+            }
+        }
+
+        private ListBoxItem CreateHistoryEmptyItem()
+        {
+            DockPanel row = new()
+            {
+                Margin = new Thickness(8, 10, 8, 10)
+            };
+
+            Border iconBox = new()
+            {
+                Width = 34,
+                Height = 34,
+                CornerRadius = new CornerRadius(10),
+                Background = new SolidColorBrush(Color.FromRgb(31, 38, 48)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(75, 85, 100)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 10, 0),
+                Child = CreatePackIcon("History", 20, new SolidColorBrush(Color.FromRgb(166, 176, 190)))
+            };
+            DockPanel.SetDock(iconBox, Dock.Left);
+            row.Children.Add(iconBox);
+
+            StackPanel textPanel = new()
+            {
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            textPanel.Children.Add(new TextBlock
+            {
+                Text = "No history yet.",
+                Foreground = new SolidColorBrush(Color.FromRgb(232, 237, 244)),
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold
+            });
+
+            textPanel.Children.Add(new TextBlock
+            {
+                Text = "Your edits will appear here after the first change.",
+                Foreground = new SolidColorBrush(Color.FromRgb(145, 155, 170)),
+                FontSize = 11,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+
+            row.Children.Add(textPanel);
+
+            return new ListBoxItem
+            {
+                Content = row,
+                IsEnabled = false,
+                Padding = new Thickness(6),
+                Margin = new Thickness(0, 2, 0, 2),
+                Background = new SolidColorBrush(Color.FromRgb(18, 22, 29)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(42, 50, 62)),
+                BorderThickness = new Thickness(1)
+            };
+        }
+
+        private ListBoxItem CreateHistoryListItem(string description, string stackType, bool isNextAction, int index)
+        {
+            bool isUndo = stackType == "Undo";
+
+            Brush accentBrush = isUndo
+                ? new SolidColorBrush(Color.FromRgb(96, 165, 250))
+                : new SolidColorBrush(Color.FromRgb(74, 222, 128));
+
+            DockPanel row = new()
+            {
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            Border iconBox = new()
+            {
+                Width = 30,
+                Height = 30,
+                CornerRadius = new CornerRadius(9),
+                Background = isUndo
+                    ? new SolidColorBrush(Color.FromRgb(25, 45, 74))
+                    : new SolidColorBrush(Color.FromRgb(25, 68, 43)),
+                BorderBrush = accentBrush,
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 10, 0),
+                Child = CreatePackIcon(isUndo ? "Undo" : "Redo", 17, accentBrush)
+            };
+            DockPanel.SetDock(iconBox, Dock.Left);
+            row.Children.Add(iconBox);
+
+            StackPanel textPanel = new()
+            {
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            textPanel.Children.Add(new TextBlock
+            {
+                Text = description,
+                Foreground = new SolidColorBrush(Color.FromRgb(232, 237, 244)),
+                FontSize = 12,
+                FontWeight = isNextAction ? FontWeights.SemiBold : FontWeights.Normal,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+
+            textPanel.Children.Add(new TextBlock
+            {
+                Text = isNextAction ? $"Next {stackType.ToLowerInvariant()} action" : $"{stackType} stack item #{index}",
+                Foreground = new SolidColorBrush(Color.FromRgb(145, 155, 170)),
+                FontSize = 10.5,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+
+            row.Children.Add(textPanel);
+
+            return new ListBoxItem
+            {
+                Content = row,
+                Padding = new Thickness(8, 7, 8, 7),
+                Margin = new Thickness(0, 2, 0, 2),
+                Background = isNextAction
+                    ? new SolidColorBrush(Color.FromRgb(24, 36, 54))
+                    : new SolidColorBrush(Color.FromRgb(18, 22, 29)),
+                BorderBrush = isNextAction
+                    ? accentBrush
+                    : new SolidColorBrush(Color.FromRgb(42, 50, 62)),
+                BorderThickness = new Thickness(1),
+                IsEnabled = false
+            };
+        }
+
+        private void HistoryUndoButton_Click(object sender, RoutedEventArgs e) => UndoLastAction();
+        private void HistoryRedoButton_Click(object sender, RoutedEventArgs e) => RedoLastAction();
 
         private void UndoButton_Click(object sender, RoutedEventArgs e) => UndoLastAction();
         private void RedoButton_Click(object sender, RoutedEventArgs e) => RedoLastAction();
         private void CopyButton_Click(object sender, RoutedEventArgs e) => CopySelectedObjectsToClipboard();
         private void PasteButton_Click(object sender, RoutedEventArgs e) => PasteClipboardObjects();
         private void DuplicateButton_Click(object sender, RoutedEventArgs e) => DuplicateSelectedObjects();
+        private void MirrorSelectedHorizontallyButton_Click(object sender, RoutedEventArgs e) => MirrorSelectedObjects(true);
+        private void MirrorSelectedVerticallyButton_Click(object sender, RoutedEventArgs e) => MirrorSelectedObjects(false);
 
         private void SnapToGridButton_Click(object sender, RoutedEventArgs e)
         {
@@ -7850,6 +9752,8 @@ namespace haxballeditor
                 isUpdatingSnapUi = false;
             }
 
+            UpdateViewportMiniToolbarUi();
+            SaveEditorPreferences();
             UpdateStatus(snapToGrid ? $"Snap to grid enabled ({snapGridSize:0.##})." : "Snap to grid disabled.");
         }
 
@@ -8210,22 +10114,17 @@ namespace haxballeditor
 
             List<ValidationIssue> issues = existingIssues ?? ValidateStadiumData();
             int criticalCount = CountCriticalValidationIssues(issues);
-            int warningCount = issues.Count - criticalCount;
+            int warningCount = issues.Count(issue => issue.Severity == "Warning");
+            int infoCount = issues.Count(issue => issue.Severity == "Info");
 
             ValidationResultsListBox.Items.Clear();
 
             if (issues.Count == 0)
             {
-                ValidationSummaryText.Text = "OK No validation issues found.";
-                ValidationDetailsText.Text = "The current stadium data looks safe to save.";
+                ValidationSummaryText.Text = "Clean Stadium";
+                ValidationDetailsText.Text = "0 critical issues • 0 warnings • ready to save";
 
-                ValidationResultsListBox.Items.Add(new ListBoxItem
-                {
-                    Content = "OK No critical errors or warnings.",
-                    Foreground = new SolidColorBrush(Color.FromRgb(130, 220, 150)),
-                    IsEnabled = false,
-                    Padding = new Thickness(8, 5, 8, 5)
-                });
+                ValidationResultsListBox.Items.Add(CreateValidationEmptyStateItem());
 
                 if (showStatus)
                 {
@@ -8236,8 +10135,8 @@ namespace haxballeditor
             }
 
             ValidationSummaryText.Text = criticalCount > 0
-                ? $"ERROR {criticalCount} critical error(s), {warningCount} warning(s)."
-                : $"WARN {warningCount} warning(s), no critical errors.";
+                ? $"{criticalCount} Critical  •  {warningCount} Warning"
+                : $"{warningCount} Warning  •  No critical errors";
 
             ValidationDetailsText.Text = "Double-click an object-related result to select and focus it.";
 
@@ -8252,32 +10151,285 @@ namespace haxballeditor
             }
         }
 
+        private ListBoxItem CreateValidationEmptyStateItem()
+        {
+            Grid row = new()
+            {
+                Margin = new Thickness(8, 10, 8, 10)
+            };
+
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            Border iconBox = new()
+            {
+                Width = 34,
+                Height = 34,
+                CornerRadius = new CornerRadius(10),
+                Background = new SolidColorBrush(Color.FromRgb(25, 68, 43)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(74, 222, 128)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 10, 0),
+                Child = CreatePackIcon("CheckCircleOutline", 20, new SolidColorBrush(Color.FromRgb(134, 239, 172)))
+            };
+            Grid.SetColumn(iconBox, 0);
+            row.Children.Add(iconBox);
+
+            StackPanel textPanel = new()
+            {
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            textPanel.Children.Add(new TextBlock
+            {
+                Text = "No validation issues found.",
+                Foreground = new SolidColorBrush(Color.FromRgb(220, 252, 231)),
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold
+            });
+
+            textPanel.Children.Add(new TextBlock
+            {
+                Text = "Your stadium data looks clean.",
+                Foreground = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+                FontSize = 11,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+
+            Grid.SetColumn(textPanel, 1);
+            row.Children.Add(textPanel);
+
+            return new ListBoxItem
+            {
+                Content = row,
+                IsEnabled = false,
+                Padding = new Thickness(6),
+                Margin = new Thickness(0, 2, 0, 2),
+                Background = new SolidColorBrush(Color.FromRgb(18, 42, 29)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(34, 80, 51)),
+                BorderThickness = new Thickness(1)
+            };
+        }
+
         private void AddValidationResultItem(ValidationIssue issue)
         {
             bool critical = issue.Severity == "Error";
-            string prefix = critical ? "ERROR" : "WARN";
-            string target = string.IsNullOrWhiteSpace(issue.ObjectType) ? "Stadium" : $"{issue.ObjectType} #{issue.ObjectIndex}";
+            bool warning = issue.Severity == "Warning";
+
+            Brush accentBrush = critical
+                ? new SolidColorBrush(Color.FromRgb(248, 113, 113))
+                : warning
+                    ? new SolidColorBrush(Color.FromRgb(251, 191, 36))
+                    : new SolidColorBrush(Color.FromRgb(96, 165, 250));
+
+            Brush backgroundBrush = critical
+                ? new SolidColorBrush(Color.FromRgb(48, 28, 28))
+                : warning
+                    ? new SolidColorBrush(Color.FromRgb(48, 40, 24))
+                    : new SolidColorBrush(Color.FromRgb(24, 35, 52));
+
+            Brush borderBrush = critical
+                ? new SolidColorBrush(Color.FromRgb(105, 58, 58))
+                : warning
+                    ? new SolidColorBrush(Color.FromRgb(105, 88, 45))
+                    : new SolidColorBrush(Color.FromRgb(50, 78, 120));
+
+            string target = string.IsNullOrWhiteSpace(issue.ObjectType) || issue.ObjectIndex < 0
+                ? "Stadium"
+                : $"{GetValidationObjectDisplayName(issue.ObjectType)} #{issue.ObjectIndex}";
+
+            Grid row = new()
+            {
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            Border iconBox = new()
+            {
+                Width = 30,
+                Height = 30,
+                CornerRadius = new CornerRadius(9),
+                Background = critical
+                    ? new SolidColorBrush(Color.FromRgb(68, 30, 30))
+                    : warning
+                        ? new SolidColorBrush(Color.FromRgb(66, 48, 18))
+                        : new SolidColorBrush(Color.FromRgb(25, 45, 74)),
+                BorderBrush = accentBrush,
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 10, 0),
+                Child = CreatePackIcon(GetValidationSeverityIconName(issue.Severity), 18, accentBrush)
+            };
+            Grid.SetColumn(iconBox, 0);
+            row.Children.Add(iconBox);
+
+            StackPanel textPanel = new()
+            {
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            DockPanel titlePanel = new()
+            {
+                LastChildFill = true
+            };
+
+            Border severityPill = new()
+            {
+                Background = critical
+                    ? new SolidColorBrush(Color.FromRgb(127, 29, 29))
+                    : warning
+                        ? new SolidColorBrush(Color.FromRgb(113, 63, 18))
+                        : new SolidColorBrush(Color.FromRgb(30, 64, 120)),
+                BorderBrush = accentBrush,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(7, 2, 7, 2),
+                Margin = new Thickness(0, 0, 8, 0),
+                Child = new TextBlock
+                {
+                    Text = GetValidationSeverityLabel(issue.Severity),
+                    Foreground = Brushes.White,
+                    FontSize = 10,
+                    FontWeight = FontWeights.Bold
+                }
+            };
+            DockPanel.SetDock(severityPill, Dock.Left);
+            titlePanel.Children.Add(severityPill);
+
+            titlePanel.Children.Add(new TextBlock
+            {
+                Text = target,
+                Foreground = new SolidColorBrush(Color.FromRgb(232, 237, 244)),
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+
+            textPanel.Children.Add(titlePanel);
+
+            textPanel.Children.Add(new TextBlock
+            {
+                Text = issue.Message,
+                Foreground = critical
+                    ? new SolidColorBrush(Color.FromRgb(254, 202, 202))
+                    : warning
+                        ? new SolidColorBrush(Color.FromRgb(253, 230, 138))
+                        : new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+                FontSize = 11,
+                Margin = new Thickness(0, 3, 0, 0),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            Grid.SetColumn(textPanel, 1);
+            row.Children.Add(textPanel);
 
             ListBoxItem item = new()
             {
-                Content = $"{prefix} [{issue.Severity}] {target}  -  {issue.Message}",
+                Content = row,
                 Tag = issue,
-                Padding = new Thickness(8, 5, 8, 5),
-                Margin = new Thickness(0, 1, 0, 1),
+                Padding = new Thickness(8, 7, 8, 7),
+                Margin = new Thickness(0, 2, 0, 2),
                 Cursor = string.IsNullOrWhiteSpace(issue.ObjectType) ? Cursors.Arrow : Cursors.Hand,
-                Foreground = critical
-                    ? new SolidColorBrush(Color.FromRgb(255, 150, 150))
-                    : new SolidColorBrush(Color.FromRgb(255, 210, 130)),
-                Background = critical
-                    ? new SolidColorBrush(Color.FromRgb(48, 28, 28))
-                    : new SolidColorBrush(Color.FromRgb(48, 40, 24)),
-                BorderBrush = critical
-                    ? new SolidColorBrush(Color.FromRgb(105, 58, 58))
-                    : new SolidColorBrush(Color.FromRgb(105, 88, 45)),
-                BorderThickness = new Thickness(1)
+                Foreground = accentBrush,
+                Background = backgroundBrush,
+                BorderBrush = borderBrush,
+                BorderThickness = new Thickness(1),
+                ContextMenu = CreateValidationIssueContextMenu(issue)
             };
 
             ValidationResultsListBox.Items.Add(item);
+        }
+
+        private ContextMenu CreateValidationIssueContextMenu(ValidationIssue issue)
+        {
+            ContextMenu menu = new()
+            {
+                Background = new SolidColorBrush(Color.FromRgb(32, 34, 38)),
+                Foreground = new SolidColorBrush(Color.FromRgb(232, 237, 244)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(59, 64, 72)),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(4),
+                Style = TryFindResource("DarkContextMenu") as Style
+            };
+
+            menu.Resources.Add(SystemColors.ControlBrushKey, new SolidColorBrush(Color.FromRgb(32, 34, 38)));
+            menu.Resources.Add(SystemColors.MenuBrushKey, new SolidColorBrush(Color.FromRgb(32, 34, 38)));
+            menu.Resources.Add(SystemColors.MenuTextBrushKey, new SolidColorBrush(Color.FromRgb(232, 237, 244)));
+            menu.Resources.Add(SystemColors.HighlightBrushKey, new SolidColorBrush(Color.FromRgb(36, 54, 70)));
+            menu.Resources.Add(SystemColors.HighlightTextBrushKey, Brushes.White);
+
+            bool hasObjectTarget = !string.IsNullOrWhiteSpace(issue.ObjectType) && issue.ObjectIndex >= 0;
+
+            MenuItem focusItem = CreateValidationMenuItem("Focus Object", "CrosshairsGps", () => FocusValidationIssue(issue));
+            focusItem.IsEnabled = hasObjectTarget;
+            menu.Items.Add(focusItem);
+
+            MenuItem selectItem = CreateValidationMenuItem("Select Object", "CursorDefaultClick", () =>
+            {
+                SelectLayerObject(new LayerListItem(issue.ObjectType, issue.ObjectIndex, $"{issue.ObjectType} #{issue.ObjectIndex}", issue.Message), false);
+            });
+            selectItem.IsEnabled = hasObjectTarget;
+            menu.Items.Add(selectItem);
+
+            menu.Items.Add(CreateLayerSeparator());
+            menu.Items.Add(CreateValidationMenuItem("Copy Message", "ContentCopy", () =>
+            {
+                Clipboard.SetText($"{GetValidationSeverityLabel(issue.Severity)} - {issue.Message}");
+                UpdateStatus("Validation message copied.");
+            }));
+
+            return menu;
+        }
+
+        private MenuItem CreateValidationMenuItem(string header, string iconName, Action action)
+        {
+            MenuItem menuItem = new()
+            {
+                Header = header,
+                Foreground = new SolidColorBrush(Color.FromRgb(232, 237, 244)),
+                Background = Brushes.Transparent,
+                Padding = new Thickness(10, 5, 10, 5),
+                Cursor = Cursors.Hand,
+                Style = TryFindResource("DarkContextMenuItem") as Style,
+                Icon = CreatePackIcon(iconName, 15, new SolidColorBrush(Color.FromRgb(166, 176, 190)))
+            };
+
+            menuItem.Click += (_, _) => action();
+            return menuItem;
+        }
+
+        private string GetValidationSeverityIconName(string severity)
+        {
+            return severity switch
+            {
+                "Error" => "AlertCircleOutline",
+                "Warning" => "AlertOutline",
+                "Info" => "InformationOutline",
+                _ => "InformationOutline"
+            };
+        }
+
+        private string GetValidationSeverityLabel(string severity)
+        {
+            return severity switch
+            {
+                "Error" => "CRITICAL",
+                "Warning" => "WARNING",
+                "Info" => "INFO",
+                _ => severity.ToUpperInvariant()
+            };
+        }
+
+        private string GetValidationObjectDisplayName(string objectType)
+        {
+            return objectType switch
+            {
+                "RedSpawn" => "Red Spawn",
+                "BlueSpawn" => "Blue Spawn",
+                _ => objectType
+            };
         }
 
         private void FocusValidationIssue(ValidationIssue issue)
@@ -8859,20 +11011,114 @@ namespace haxballeditor
             bool isSelected = IsObjectSelectedInEditor(item.Type, item.Index);
             bool isHidden = IsObjectHidden(item.Type, item.Index);
             bool isLocked = IsObjectLocked(item.Type, item.Index);
-            string statePrefix = (isHidden ? "[H] " : "") + (isLocked ? "[L] " : "");
+
+            Brush textBrush = isSelected
+                ? Brushes.White
+                : isHidden
+                    ? new SolidColorBrush(Color.FromRgb(130, 138, 150))
+                    : new SolidColorBrush(Color.FromRgb(232, 237, 244));
+
+            Brush mutedBrush = isHidden
+                ? new SolidColorBrush(Color.FromRgb(93, 101, 113))
+                : new SolidColorBrush(Color.FromRgb(145, 155, 170));
+
+            Grid row = new()
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition { Width = GridLength.Auto },
+                    new ColumnDefinition { Width = GridLength.Auto },
+                    new ColumnDefinition { Width = GridLength.Auto },
+                    new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+                },
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = isHidden ? 0.62 : 1.0
+            };
+
+            Button visibilityButton = CreateLayerStateButton(
+                isHidden ? "EyeOffOutline" : "EyeOutline",
+                isHidden ? "Show object" : "Hide object",
+                isHidden ? new SolidColorBrush(Color.FromRgb(245, 158, 11)) : new SolidColorBrush(Color.FromRgb(142, 154, 171)));
+
+            visibilityButton.Click += (_, e) =>
+            {
+                ToggleLayerHidden(item, !IsObjectHidden(item.Type, item.Index));
+                e.Handled = true;
+            };
+            Grid.SetColumn(visibilityButton, 0);
+            row.Children.Add(visibilityButton);
+
+            Button lockButton = CreateLayerStateButton(
+                isLocked ? "Lock" : "LockOpenVariant",
+                isLocked ? "Unlock object" : "Lock object",
+                isLocked ? new SolidColorBrush(Color.FromRgb(248, 113, 113)) : new SolidColorBrush(Color.FromRgb(142, 154, 171)));
+
+            lockButton.Click += (_, e) =>
+            {
+                ToggleLayerLock(item, !IsObjectLocked(item.Type, item.Index));
+                e.Handled = true;
+            };
+            Grid.SetColumn(lockButton, 1);
+            row.Children.Add(lockButton);
+
+            Border typeIconBox = new()
+            {
+                Width = 22,
+                Height = 22,
+                CornerRadius = new CornerRadius(6),
+                Background = isSelected
+                    ? new SolidColorBrush(Color.FromRgb(14, 99, 156))
+                    : new SolidColorBrush(Color.FromRgb(31, 38, 48)),
+                BorderBrush = isSelected
+                    ? new SolidColorBrush(Color.FromRgb(47, 183, 232))
+                    : new SolidColorBrush(Color.FromRgb(49, 58, 71)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(4, 0, 8, 0),
+                Child = CreatePackIcon(GetLayerTypeIconName(item.Type), 13, GetLayerTypeIconBrush(item.Type, isHidden))
+            };
+            Grid.SetColumn(typeIconBox, 2);
+            row.Children.Add(typeIconBox);
+
+            StackPanel textPanel = new()
+            {
+                Orientation = Orientation.Vertical,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            TextBlock titleText = new()
+            {
+                Text = GetLayerObjectTitle(item),
+                Foreground = textBrush,
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            textPanel.Children.Add(titleText);
+
+            string detailText = GetLayerObjectDetail(item);
+            if (!string.IsNullOrWhiteSpace(detailText))
+            {
+                textPanel.Children.Add(new TextBlock
+                {
+                    Text = detailText,
+                    Foreground = mutedBrush,
+                    FontSize = 10.5,
+                    Margin = new Thickness(0, 1, 0, 0),
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                });
+            }
+
+            Grid.SetColumn(textPanel, 3);
+            row.Children.Add(textPanel);
 
             ListBoxItem listBoxItem = new()
             {
-                Content = statePrefix + item.DisplayName,
+                Content = row,
                 Tag = item,
-                Padding = new Thickness(7, 4, 7, 4),
+                Padding = new Thickness(5, 5, 7, 5),
                 Margin = new Thickness(0, 1, 0, 1),
                 Cursor = Cursors.Hand,
-                Foreground = isSelected
-                    ? Brushes.White
-                    : isHidden
-                        ? new SolidColorBrush(Color.FromRgb(130, 138, 150))
-                        : new SolidColorBrush(Color.FromRgb(232, 237, 244)),
+                Foreground = textBrush,
                 Background = isSelected
                     ? new SolidColorBrush(Color.FromRgb(23, 53, 70))
                     : Brushes.Transparent,
@@ -8890,6 +11136,118 @@ namespace haxballeditor
             }
 
             ObjectsListBox.Items.Add(listBoxItem);
+        }
+
+        private Button CreateLayerStateButton(string iconName, string tooltip, Brush iconBrush)
+        {
+            Button button = new()
+            {
+                Width = 24,
+                Height = 24,
+                Padding = new Thickness(0),
+                Margin = new Thickness(0, 0, 3, 0),
+                Background = Brushes.Transparent,
+                BorderBrush = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand,
+                ToolTip = tooltip,
+                Content = CreatePackIcon(iconName, 15, iconBrush)
+            };
+
+            return button;
+        }
+
+        private UIElement CreatePackIcon(string iconName, double size, Brush brush)
+        {
+            PackIcon icon = new()
+            {
+                Width = size,
+                Height = size,
+                Foreground = brush,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+
+            if (Enum.TryParse(iconName, out PackIconKind parsedKind))
+            {
+                icon.Kind = parsedKind;
+                return icon;
+            }
+
+            return new TextBlock
+            {
+                Text = "•",
+                FontSize = size,
+                Foreground = brush,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+        }
+
+        private string GetLayerTypeIconName(string type)
+        {
+            return type switch
+            {
+                "Vertex" => "VectorPoint",
+                "Segment" => "VectorLine",
+                "Disc" => "CircleOutline",
+                "Goal" => "Soccer",
+                "Plane" => "AxisArrow",
+                "Joint" => "LinkVariant",
+                "RedSpawn" => "AccountArrowRight",
+                "BlueSpawn" => "AccountArrowLeft",
+                _ => "CircleOutline"
+            };
+        }
+
+        private Brush GetLayerTypeIconBrush(string type, bool isHidden)
+        {
+            if (isHidden)
+            {
+                return new SolidColorBrush(Color.FromRgb(118, 128, 142));
+            }
+
+            return type switch
+            {
+                "Vertex" => new SolidColorBrush(Color.FromRgb(236, 72, 153)),
+                "Segment" => new SolidColorBrush(Color.FromRgb(56, 189, 248)),
+                "Disc" => new SolidColorBrush(Color.FromRgb(250, 204, 21)),
+                "Goal" => new SolidColorBrush(Color.FromRgb(74, 222, 128)),
+                "Plane" => new SolidColorBrush(Color.FromRgb(167, 139, 250)),
+                "Joint" => new SolidColorBrush(Color.FromRgb(251, 146, 60)),
+                "RedSpawn" => new SolidColorBrush(Color.FromRgb(248, 113, 113)),
+                "BlueSpawn" => new SolidColorBrush(Color.FromRgb(96, 165, 250)),
+                _ => new SolidColorBrush(Color.FromRgb(232, 237, 244))
+            };
+        }
+
+        private string GetLayerObjectTitle(LayerListItem item)
+        {
+            return item.Type switch
+            {
+                "RedSpawn" => $"Red Spawn #{item.Index}",
+                "BlueSpawn" => $"Blue Spawn #{item.Index}",
+                _ => $"{item.Type} #{item.Index}"
+            };
+        }
+
+        private string GetLayerObjectDetail(LayerListItem item)
+        {
+            string displayName = item.DisplayName.Trim();
+
+            if (displayName.StartsWith(GetLayerObjectTitle(item), StringComparison.OrdinalIgnoreCase))
+            {
+                return displayName.Substring(GetLayerObjectTitle(item).Length).Trim();
+            }
+
+            int doubleSpaceIndex = displayName.IndexOf("  ", StringComparison.Ordinal);
+            if (doubleSpaceIndex >= 0 && doubleSpaceIndex + 2 < displayName.Length)
+            {
+                return displayName.Substring(doubleSpaceIndex + 2).Trim();
+            }
+
+            return "";
         }
 
 
@@ -8911,29 +11269,29 @@ namespace haxballeditor
             menu.Resources.Add(SystemColors.HighlightBrushKey, new SolidColorBrush(Color.FromRgb(36, 54, 70)));
             menu.Resources.Add(SystemColors.HighlightTextBrushKey, Brushes.White);
 
-            menu.Items.Add(CreateLayerMenuItem("Select", () => SelectLayerObject(item, false)));
-            menu.Items.Add(CreateLayerMenuItem("Focus in Viewport", () => SelectLayerObject(item, true)));
+            menu.Items.Add(CreateLayerMenuItem("Select", "CursorDefaultClick", () => SelectLayerObject(item, false)));
+            menu.Items.Add(CreateLayerMenuItem("Focus in Viewport", "CrosshairsGps", () => SelectLayerObject(item, true)));
             menu.Items.Add(CreateLayerSeparator());
-            menu.Items.Add(CreateLayerMenuItem("Duplicate", () => { SelectLayerObject(item, false); DuplicateSelectedObjects(); }));
-            menu.Items.Add(CreateLayerMenuItem("Delete", () => { SelectLayerObject(item, false); DeleteSelectedItems(); }));
+            menu.Items.Add(CreateLayerMenuItem("Duplicate", "ContentDuplicate", () => { SelectLayerObject(item, false); DuplicateSelectedObjects(); }));
+            menu.Items.Add(CreateLayerMenuItem("Delete", "TrashCanOutline", () => { SelectLayerObject(item, false); DeleteSelectedItems(); }));
             menu.Items.Add(CreateLayerSeparator());
 
             if (IsObjectLocked(item.Type, item.Index))
             {
-                menu.Items.Add(CreateLayerMenuItem("Unlock", () => ToggleLayerLock(item, false)));
+                menu.Items.Add(CreateLayerMenuItem("Unlock", "LockOpenVariant", () => ToggleLayerLock(item, false)));
             }
             else
             {
-                menu.Items.Add(CreateLayerMenuItem("Lock", () => ToggleLayerLock(item, true)));
+                menu.Items.Add(CreateLayerMenuItem("Lock", "Lock", () => ToggleLayerLock(item, true)));
             }
 
             if (IsObjectHidden(item.Type, item.Index))
             {
-                menu.Items.Add(CreateLayerMenuItem("Show", () => ToggleLayerHidden(item, false)));
+                menu.Items.Add(CreateLayerMenuItem("Show", "EyeOutline", () => ToggleLayerHidden(item, false)));
             }
             else
             {
-                menu.Items.Add(CreateLayerMenuItem("Hide", () => ToggleLayerHidden(item, true)));
+                menu.Items.Add(CreateLayerMenuItem("Hide", "EyeOffOutline", () => ToggleLayerHidden(item, true)));
             }
 
             return menu;
@@ -8949,7 +11307,7 @@ namespace haxballeditor
             return separator;
         }
 
-        private MenuItem CreateLayerMenuItem(string header, Action action)
+        private MenuItem CreateLayerMenuItem(string header, string iconName, Action action)
         {
             MenuItem menuItem = new()
             {
@@ -8958,7 +11316,8 @@ namespace haxballeditor
                 Background = Brushes.Transparent,
                 Padding = new Thickness(10, 5, 10, 5),
                 Cursor = Cursors.Hand,
-                Style = TryFindResource("DarkContextMenuItem") as Style
+                Style = TryFindResource("DarkContextMenuItem") as Style,
+                Icon = CreatePackIcon(iconName, 15, new SolidColorBrush(Color.FromRgb(166, 176, 190)))
             };
 
             menuItem.Click += (_, _) => action();
@@ -9003,6 +11362,253 @@ namespace haxballeditor
             };
         }
 
+        private void SelectMirroredPair(string type, int originalIndex, int mirroredIndex)
+        {
+            ClearSingleSelectionIndexes();
+            selectedItems.Clear();
+            selectedItems.Add(new SelectedItem(type, originalIndex));
+            selectedItems.Add(new SelectedItem(type, mirroredIndex));
+            UpdateMultiSelectionSummary();
+        }
+
+        private void MirrorSelectedObjects(bool horizontally)
+        {
+            List<SelectedItem> targets = GetCurrentSelectionItems();
+
+            if (targets.Count == 0)
+            {
+                UpdateStatus("No object selected to mirror.");
+                return;
+            }
+
+            PushUndoState(horizontally ? "Mirror Selected Horizontally" : "Mirror Selected Vertically");
+
+            HashSet<int> mirroredVertexes = new();
+            HashSet<int> mirroredDiscs = new();
+            HashSet<int> mirroredGoals = new();
+            HashSet<int> mirroredPlanes = new();
+            HashSet<int> mirroredRedSpawns = new();
+            HashSet<int> mirroredBlueSpawns = new();
+
+            foreach (SelectedItem item in targets)
+            {
+                if (IsObjectLocked(item.Type, item.Index))
+                {
+                    continue;
+                }
+
+                switch (item.Type)
+                {
+                    case "Vertex":
+                        MirrorVertex(item.Index, horizontally, mirroredVertexes);
+                        break;
+
+                    case "Segment":
+                        if (item.Index >= 0 && item.Index < stadium.Segments.Count)
+                        {
+                            SegmentData segment = stadium.Segments[item.Index];
+                            MirrorVertex(segment.V0, horizontally, mirroredVertexes);
+                            MirrorVertex(segment.V1, horizontally, mirroredVertexes);
+                        }
+                        break;
+
+                    case "Disc":
+                        MirrorDisc(item.Index, horizontally, mirroredDiscs);
+                        break;
+
+                    case "Goal":
+                        MirrorGoal(item.Index, horizontally, mirroredGoals);
+                        break;
+
+                    case "Plane":
+                        MirrorPlane(item.Index, horizontally, mirroredPlanes);
+                        break;
+
+                    case "Joint":
+                        if (item.Index >= 0 && item.Index < stadium.Joints.Count)
+                        {
+                            JointData joint = stadium.Joints[item.Index];
+                            MirrorDisc(joint.D0, horizontally, mirroredDiscs);
+                            MirrorDisc(joint.D1, horizontally, mirroredDiscs);
+                        }
+                        break;
+
+                    case "RedSpawn":
+                        MirrorRedSpawn(item.Index, horizontally, mirroredRedSpawns);
+                        break;
+
+                    case "BlueSpawn":
+                        MirrorBlueSpawn(item.Index, horizontally, mirroredBlueSpawns);
+                        break;
+                }
+            }
+
+            RenderStadium();
+            UpdateObjectsList();
+            UpdateJsonPreview();
+
+            if (HasSingleSelection())
+            {
+                RefreshInspectorForCurrentSingleSelection();
+            }
+            else
+            {
+                UpdateMultiSelectionSummary();
+            }
+
+            UpdateStatus($"{(horizontally ? "Horizontally" : "Vertically")} mirrored {targets.Count} selected object(s).");
+        }
+
+        private List<SelectedItem> GetCurrentSelectionItems()
+        {
+            if (selectedItems.Count > 0)
+            {
+                return selectedItems
+                    .Select(item => new SelectedItem(item.Type, item.Index))
+                    .ToList();
+            }
+
+            if (selectedVertexIndex != null) return new List<SelectedItem> { new("Vertex", selectedVertexIndex.Value) };
+            if (selectedSegmentIndex != null) return new List<SelectedItem> { new("Segment", selectedSegmentIndex.Value) };
+            if (selectedDiscIndex != null) return new List<SelectedItem> { new("Disc", selectedDiscIndex.Value) };
+            if (selectedGoalIndex != null) return new List<SelectedItem> { new("Goal", selectedGoalIndex.Value) };
+            if (selectedPlaneIndex != null) return new List<SelectedItem> { new("Plane", selectedPlaneIndex.Value) };
+            if (selectedJointIndex != null) return new List<SelectedItem> { new("Joint", selectedJointIndex.Value) };
+            if (selectedRedSpawnIndex != null) return new List<SelectedItem> { new("RedSpawn", selectedRedSpawnIndex.Value) };
+            if (selectedBlueSpawnIndex != null) return new List<SelectedItem> { new("BlueSpawn", selectedBlueSpawnIndex.Value) };
+
+            return new List<SelectedItem>();
+        }
+
+        private void MirrorVertex(int index, bool horizontally, HashSet<int> mirrored)
+        {
+            if (index < 0 || index >= stadium.Vertexes.Count || !mirrored.Add(index) || IsObjectLocked("Vertex", index))
+            {
+                return;
+            }
+
+            VertexData vertex = stadium.Vertexes[index];
+            if (horizontally)
+            {
+                vertex.X = MirrorCanvasX(vertex.X);
+            }
+            else
+            {
+                vertex.Y = MirrorCanvasY(vertex.Y);
+            }
+        }
+
+        private void MirrorDisc(int index, bool horizontally, HashSet<int> mirrored)
+        {
+            if (index < 0 || index >= stadium.Discs.Count || !mirrored.Add(index) || IsObjectLocked("Disc", index))
+            {
+                return;
+            }
+
+            DiscData disc = stadium.Discs[index];
+            if (horizontally)
+            {
+                disc.X = MirrorCanvasX(disc.X);
+            }
+            else
+            {
+                disc.Y = MirrorCanvasY(disc.Y);
+            }
+        }
+
+        private void MirrorGoal(int index, bool horizontally, HashSet<int> mirrored)
+        {
+            if (index < 0 || index >= stadium.Goals.Count || !mirrored.Add(index) || IsObjectLocked("Goal", index))
+            {
+                return;
+            }
+
+            GoalData goal = stadium.Goals[index];
+
+            if (horizontally)
+            {
+                goal.X0 = MirrorCanvasX(goal.X0);
+                goal.X1 = MirrorCanvasX(goal.X1);
+            }
+            else
+            {
+                goal.Y0 = MirrorCanvasY(goal.Y0);
+                goal.Y1 = MirrorCanvasY(goal.Y1);
+            }
+        }
+
+        private void MirrorPlane(int index, bool horizontally, HashSet<int> mirrored)
+        {
+            if (index < 0 || index >= stadium.Planes.Count || !mirrored.Add(index) || IsObjectLocked("Plane", index))
+            {
+                return;
+            }
+
+            PlaneData plane = stadium.Planes[index];
+
+            if (plane.Normal == null || plane.Normal.Count < 2)
+            {
+                return;
+            }
+
+            if (horizontally)
+            {
+                plane.Normal[0] = -plane.Normal[0];
+            }
+            else
+            {
+                plane.Normal[1] = -plane.Normal[1];
+            }
+
+            plane.Dist = -plane.Dist;
+        }
+
+        private void MirrorRedSpawn(int index, bool horizontally, HashSet<int> mirrored)
+        {
+            if (index < 0 || index >= stadium.RedSpawnPoints.Count || !mirrored.Add(index) || IsObjectLocked("RedSpawn", index))
+            {
+                return;
+            }
+
+            SpawnPointData spawn = stadium.RedSpawnPoints[index];
+            if (horizontally)
+            {
+                spawn.X = MirrorCanvasX(spawn.X);
+            }
+            else
+            {
+                spawn.Y = MirrorCanvasY(spawn.Y);
+            }
+        }
+
+        private void MirrorBlueSpawn(int index, bool horizontally, HashSet<int> mirrored)
+        {
+            if (index < 0 || index >= stadium.BlueSpawnPoints.Count || !mirrored.Add(index) || IsObjectLocked("BlueSpawn", index))
+            {
+                return;
+            }
+
+            SpawnPointData spawn = stadium.BlueSpawnPoints[index];
+            if (horizontally)
+            {
+                spawn.X = MirrorCanvasX(spawn.X);
+            }
+            else
+            {
+                spawn.Y = MirrorCanvasY(spawn.Y);
+            }
+        }
+
+        private double MirrorCanvasX(double x)
+        {
+            return GetCanvasCenterX() - (x - GetCanvasCenterX());
+        }
+
+        private double MirrorCanvasY(double y)
+        {
+            return GetCanvasCenterY() - (y - GetCanvasCenterY());
+        }
+
         private void UpdateJsonPreview()
         {
             isUpdatingJsonPreviewFromCode = true;
@@ -9022,6 +11628,36 @@ namespace haxballeditor
         {
             StatusText.Text = message;
         }
+    }
+
+    public class EditorPreferences
+    {
+        public bool? AutoSaveEnabled { get; set; }
+        public string? CustomAutoSaveFolderPath { get; set; }
+
+        public bool? ValidationWarningBeforeSaveEnabled { get; set; }
+        public bool? ValidationPanelAutoRefreshEnabled { get; set; }
+
+        public bool? ShowViewportGrid { get; set; }
+        public bool? ShowViewportVertexes { get; set; }
+        public bool? ShowViewportSegments { get; set; }
+        public bool? ShowViewportDiscs { get; set; }
+        public bool? ShowViewportPlanes { get; set; }
+        public bool? ShowViewportGrassStripes { get; set; }
+        public bool? ShowViewportInvisibleObjects { get; set; }
+        public bool? AutoMirrorPlacement { get; set; }
+
+        public bool? SnapToGrid { get; set; }
+        public double? SnapGridSize { get; set; }
+        public string? ViewportVertexSize { get; set; }
+
+        public double? LeftPanelWidth { get; set; }
+        public double? RightPanelWidth { get; set; }
+        public double? BottomPanelHeight { get; set; }
+        public double? WindowWidth { get; set; }
+        public double? WindowHeight { get; set; }
+
+        public Dictionary<string, string>? PanelDockStates { get; set; }
     }
 
     public class StadiumData
