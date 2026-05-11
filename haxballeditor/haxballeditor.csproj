@@ -1,22 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-    <ApplicationIcon>HaxBallEditorLogo.ico</ApplicationIcon>
-    <AssemblyTitle>HaxStudio</AssemblyTitle>
-    <RootNamespace>haxballeditor</RootNamespace>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWPF>true</UseWPF>
 
-  <ItemGroup>
-    <None Remove="HaxBallEditorLogo.ico" />
-  </ItemGroup>
+		<AssemblyName>HaxStudio</AssemblyName>
+		<AssemblyTitle>HaxStudio</AssemblyTitle>
+		<RootNamespace>haxballeditor</RootNamespace>
+		<ApplicationIcon>HaxBallEditorLogo.ico</ApplicationIcon>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Content Include="HaxBallEditorLogo.ico" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Remove="HaxBallEditorLogo.ico" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="HaxBallEditorLogo.ico" />
+	</ItemGroup>
 
 </Project>
