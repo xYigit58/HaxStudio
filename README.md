@@ -26,10 +26,6 @@ The project aims to provide a modern editor experience while preserving importan
 
 ## Screenshots
 
-### Splash Screen
-
-![Splash Screen](assets/screenshots/splash-screen.png)
-
 ### Main Editor
 
 ![Main Editor](assets/screenshots/main-editor.png)
