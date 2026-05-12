@@ -4,7 +4,7 @@
 
 Built with **WPF / C#**, HaxStudio focuses on a clean dark UI, visual map editing, safe JSON editing, validation, and a professional workflow for stadium creators.
 
-> Status: Public release / v1.0.0
+> Status: Public release / v1.1.0
 
 ---
 
