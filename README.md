@@ -2,9 +2,9 @@
 
 **HaxStudio** is a modern native Windows desktop editor for creating and editing HaxBall `.hbs` stadium files.
 
-Built with **WPF / C#**, HaxStudio focuses on visual stadium editing, advanced joint-heavy map workflows, moving segment map support, safer saving, validation, crash recovery, and a professional workflow for HaxBall stadium creators.
+Built with **WPF / C#**, HaxStudio focuses on visual stadium editing, advanced joint-heavy map workflows, moving segment map support, cross-map editing, safer saving, validation, crash recovery, cleanup tools, and a professional workflow for HaxBall stadium creators.
 
-> Status: Public release / v1.2.0
+> Status: Public release / v1.3.0
 
 ---
 
@@ -20,7 +20,7 @@ HaxStudio is designed to make HaxBall stadium editing easier, safer, and more vi
 
 Instead of editing `.hbs` JSON files manually, users can open a stadium file, inspect objects, edit the map visually, adjust properties, validate the stadium, and save the result back as a valid `.hbs` file.
 
-The project aims to provide a modern editor experience while preserving important HaxBall stadium data from real maps. HaxStudio is especially useful for advanced maps that are difficult to manage in browser-based editors, including maps with many joints, discs, curves, and moving segment systems.
+The project aims to provide a modern editor experience while preserving important HaxBall stadium data from real maps. HaxStudio is especially useful for advanced maps that are difficult to manage in browser-based editors, including maps with many joints, discs, curves, moving segment systems, decorative logos, and dense object layouts.
 
 ---
 
@@ -48,73 +48,105 @@ The project aims to provide a modern editor experience while preserving importan
 
 ---
 
-## Key Features in v1.2.0
+## Key Features in v1.3.0
 
-### Advanced Joint and Moving Segment Map Editing
+### Cross-map Copy / Paste
 
-HaxStudio is designed to support complex HaxBall stadiums with many discs, joints, curves, and segment structures.
+HaxStudio now supports copying selected stadium objects from one map and pasting them into another map.
 
-- Better workflow for maps with many joints
-- Joint editing support for advanced HaxBall stadium mechanics
-- Easier editing for moving segment based maps
-- Better support for complex disc / joint / segment structures
-- Useful for advanced mechanical maps that are hard to edit manually
-- Helpful for stadium types that browser-based editors do not handle comfortably
+- Copy objects from one `.hbs` stadium and paste them into another
+- Correctly remaps segment vertex references during paste
+- Automatically includes connected vertexes when copying segments
+- Automatically includes connected discs when copying joints
+- Handles copied trait data more safely
+- Useful for moving logos, decorations, patterns, and reusable stadium parts between maps
 
-### Recent Files
+### Paste Capacity and HaxBall Limit Checks
 
-HaxStudio now remembers recently opened and saved stadium files.
+HaxStudio now helps prevent pasted objects from creating stadiums that HaxBall cannot load.
 
-- Added `File > Recent Files`
-- Keeps the last 10 recently opened or saved stadium files
-- Added `Clear Recent Files`
-- Missing files are automatically removed from the recent list
-- Recent files are saved between program launches
+- Paste capacity preview before inserting copied objects
+- Shows current object counts and paste cost
+- Warns when paste would exceed HaxBall object/index limits
+- Helps avoid broken exports caused by too many vertexes, segments, discs, or joints
+- Better status messages after copy and paste operations
 
-### Crash Recovery
+### Safer HaxBall Compatibility Validator
 
-HaxStudio includes a crash recovery workflow to help protect unsaved stadium work.
+The validator has been reworked to be less overly strict and more focused on real HaxBall compatibility.
 
-- AutoSave recovery state tracking
-- Startup recovery dialog when recoverable work exists
-- Recovery options: `Recover`, `Open Folder`, and `Discard`
-- Recovered maps are marked as unsaved until manually saved
-- Successful Save / Save As clears recovery state
+- Critical issues are now reserved for problems that can realistically prevent HaxBall from loading a stadium
+- Many previously strict checks are now Warning or Info
+- Clearer HaxBall compatibility status
+- Better distinction between invalid stadium data and mapper-intended unusual data
+- More practical validation for real community stadium files
 
-### Save / Export Safety
+### Safe Export Report
 
-Saving and exporting is safer, especially for maps with color formatting issues.
+Saving and exporting now provides a clearer compatibility summary.
 
-- Optional validation before save/export
-- Short or invalid color detection
-- `Auto-fix & Save`
-- `Save Original`
-- `Cancel`
-- Mappers are not forced to auto-fix their files
+- Export completion report
+- HaxBall compatibility status
+- Object count summary
+- Validator summary
+- Helps users understand whether the exported map is likely to open in HaxBall
 
-### Stadium Validator
+### Selection Statistics
 
-The validator helps prevent broken stadium files before export or release.
+The selection information panel now gives more useful data for selected objects and object groups.
 
-- Segment vertex index validation
-- Goal format validation
-- Joint disc index validation
-- Short / invalid color detection
-- NaN / Infinity detection
-- `ballPhysics` reference checks
-- Trait reference checks
+- Selected object counts
+- Multi-selection bounds
+- Selection width and height
+- Paste cost information
+- Helpful when selecting logos or dense object groups
 
-### Large Map Performance
+### Cleanup Tools
 
-HaxStudio includes performance-focused improvements for large and complex stadiums.
+HaxStudio now includes safe cleanup tools for common stadium issues.
 
-- Render throttling
-- Viewport culling
-- Lazy JSON preview updates
-- Lazy Layers panel updates
-- Optimized segment creation refresh flow
-- Performance profiler support
-- Better editing experience for large joint-heavy maps
+- Cleanup Safe Issues
+- Remove Unused Vertexes
+- Remove Unused Traits
+- Safer cleanup for invalid or unnecessary data
+- Helps reduce clutter before export
+
+### Measure Tool Upgrades
+
+The Measure Tool is now more useful for precise mapping workflows.
+
+- Live coordinate and measurement information
+- Distance, delta X, delta Y, and angle display
+- Vertex snapping for accurate measurement
+- Vertex locking for stable vertex-to-vertex measurements
+- Guide/corner snap points to help draw symmetric segments
+- Improved measurement overlay information
+
+### Canvas Rotation Handle
+
+Selected objects can now be rotated directly from the viewport.
+
+- Rotate handle appears near the selected object or multi-selection group
+- Drag the handle to rotate selected objects
+- Works with single selection and multi-selection
+- Useful for logos, patterns, decorative objects, and repeated stadium structures
+
+### Curve and Hitbox Improvements
+
+Curved segment interaction and export safety have been improved.
+
+- More precise curved segment hitboxes
+- Better curved segment selection behavior
+- Safer handling of curve-related export data
+- Preserves important HaxBall curve data more carefully
+
+### Stability Improvements
+
+HaxStudio is more stable when handling complex maps and unusual numeric values.
+
+- Fixed possible overflow crash during undo/snapshot creation
+- Improved handling of very large or unusual numeric values
+- Better compatibility with complex community `.hbs` files
 
 ---
 
@@ -129,6 +161,7 @@ HaxStudio includes performance-focused improvements for large and complex stadiu
 - Manual JSON edits are applied before saving
 - Invalid JSON prevents unsafe save
 - Optional save/export validation flow
+- Safe export compatibility report
 - Preserves important existing stadium data from real maps
 
 ---
@@ -159,6 +192,8 @@ Preserved data includes:
 - `playerPhysics`
 - `ballPhysics`
 - `canBeStored`
+- Curve data
+- Joint data
 - Object extension data
 - Unknown / extra JSON fields where supported
 
@@ -180,8 +215,11 @@ Preserved data includes:
 - Segment line and curve rendering
 - HaxBall-style arc visualization
 - Curve handle editing
+- Measure Tool with vertex snapping and locking
+- Measurement guide/corner snap points
 - Overlapping segment selection by repeated clicking
 - Viewport mini toolbar
+- Canvas rotation handle
 - Mirror selected horizontally / vertically
 - Auto Mirror placement mode
 
@@ -196,9 +234,14 @@ Preserved data includes:
 - Multi-delete
 - Drag selected objects
 - Drag multiple selected objects together
+- Rotate selected objects from the viewport
+- Copy selected object groups
+- Paste copied object groups into the same map or another map
+- Paste capacity checks
 - Clear selection with Escape
 - Selected object highlight in viewport
 - Selected object highlight in Layers panel
+- Selection statistics and bounds information
 
 ---
 
@@ -217,6 +260,7 @@ Supported inspector sections include:
 - Joint information
 - Multi-select common properties
 - Selection information panel
+- Selection statistics and paste cost information
 
 Editable values include position, radius, color, curve, team, plane normal / distance, collision group, collision mask, trait, visibility, bounce coefficient, inverse mass, damping, speed, gravity, and joint values.
 
@@ -253,6 +297,35 @@ HaxStudio includes a built-in JSON editor for advanced editing.
 - Lazy preview update support for large maps
 - JSON search support
 - Syntax highlighting
+
+---
+
+## Validator
+
+The Stadium Validator helps users find compatibility and quality issues before releasing a stadium.
+
+- HaxBall compatibility status
+- Critical / Warning / Info severity levels
+- Vertex, segment, disc and joint reference checks
+- HaxBall object/index limit checks
+- Invalid numeric value detection
+- Color validation
+- Goal validation
+- Ball physics reference checks
+- Trait reference checks
+- Less aggressive critical reporting for maps that still load in HaxBall
+
+---
+
+## Cleanup Tools
+
+HaxStudio includes cleanup tools for reducing clutter and fixing safe issues.
+
+- Cleanup Safe Issues
+- Remove Unused Vertexes
+- Remove Unused Traits
+- Cleanup invalid references where safe
+- Helps prepare maps for export and release
 
 ---
 
@@ -296,6 +369,7 @@ HaxStudio includes an update checker that reads the latest release manifest from
 | Ctrl + P | Add Plane |
 | Ctrl + R | Add Red Spawn |
 | Ctrl + B | Add Blue Spawn |
+| Ctrl + M | Measure Tool |
 
 ### Editing
 
@@ -306,8 +380,10 @@ HaxStudio includes an update checker that reads the latest release manifest from
 | Ctrl + C | Copy |
 | Ctrl + V | Paste |
 | Ctrl + D | Duplicate |
+| Ctrl + Shift + H | Mirror selected horizontally |
+| Ctrl + Shift + V | Mirror selected vertically |
 | Delete / Backspace | Delete selected object(s) |
-| Escape | Clear selection |
+| Escape | Clear selection / cancel measurement |
 
 ### Viewport
 
@@ -321,6 +397,14 @@ HaxStudio includes an update checker that reads the latest release manifest from
 | Left Drag | Select fully contained objects |
 | Right Drag | Select touched objects |
 
+### JSON Editor
+
+| Shortcut | Action |
+|---|---|
+| Ctrl + F | Search JSON |
+| F3 | Next search match |
+| Shift + F3 | Previous search match |
+
 ---
 
 ## Download
@@ -330,13 +414,13 @@ Download the latest Windows installer from the GitHub Releases page.
 Latest release:
 
 ```text
-HaxStudio v1.2.0
+HaxStudio v1.3.0
 ```
 
 Installer asset:
 
 ```text
-HaxStudio_Setup_v1.2.0
+HaxStudio_Setup_v1.3.0.exe
 ```
 
 ---
@@ -361,6 +445,20 @@ HaxStudio_Setup_v1.2.0
 ---
 
 ## Version History
+
+### v1.3.0
+
+- Cross-map copy/paste support
+- Paste capacity and HaxBall limit checks
+- Safer HaxBall compatibility validator
+- Safe export report
+- Selection statistics and paste cost information
+- Cleanup tools for safe issues, unused vertexes and unused traits
+- Measure Tool upgrades with vertex snapping, locking and guide snap points
+- Canvas-based rotation handle for selected objects
+- Curved segment hitbox improvements
+- Export safety improvements
+- Overflow crash fix for unusual numeric values
 
 ### v1.2.0
 
@@ -394,4 +492,6 @@ HaxStudio_Setup_v1.2.0
 
 ## Notes
 
-HaxStudio is recommended for HaxBall mappers working with advanced stadiums, large maps, joint-heavy mechanics, moving segment systems, or long editing sessions.
+HaxStudio is recommended for HaxBall mappers working with advanced stadiums, large maps, joint-heavy mechanics, moving segment systems, logos, reusable object groups, or long editing sessions.
+
+Some maps may still fail to load in HaxBall if they exceed HaxBall's internal object/index limits. HaxStudio now warns about these cases more clearly before export.
