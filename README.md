@@ -1,5 +1,7 @@
 # HaxStudio
 
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/3aDwUt88td)
+
 **HaxStudio** is a modern native Windows desktop editor for creating and editing HaxBall `.hbs` stadium files.
 
 Built with **WPF / C#**, HaxStudio focuses on visual stadium editing, advanced map workflows, multi-renderer viewport performance, decorative segment generation, image-to-segment importing, validation, safer saving, cleanup tools, and a professional workflow for HaxBall stadium creators.
@@ -21,6 +23,14 @@ HaxStudio is designed to make HaxBall stadium editing easier, safer, faster, and
 Instead of editing `.hbs` JSON files manually, users can open a stadium file, inspect objects, edit the map visually, generate decorative content, validate the stadium, and save the result back as a valid `.hbs` file.
 
 The project aims to provide a modern editor experience while preserving important HaxBall stadium data from real maps. HaxStudio is especially useful for advanced maps that are difficult to manage in browser-based editors, including maps with many joints, discs, curves, moving segment systems, decorative logos, dense object layouts, generated text, and imported image outlines.
+
+---
+
+## Community
+
+Join the official HaxStudio Discord community to get support, report bugs, suggest features, share maps, and follow development updates.
+
+[Join the HaxStudio Discord Community](https://discord.gg/3aDwUt88td)
 
 ---
 
