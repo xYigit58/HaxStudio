@@ -1,12 +1,39 @@
 # HaxStudio
 
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/3aDwUt88td)
+[![Latest Release](https://img.shields.io/github/v/release/xYigit58/HaxStudio?label=latest%20release)](https://github.com/xYigit58/HaxStudio/releases/latest)
 
 **HaxStudio** is a modern native Windows desktop editor for creating and editing HaxBall `.hbs` stadium files.
 
-Built with **WPF / C#**, HaxStudio focuses on visual stadium editing, advanced map workflows, multi-renderer viewport performance, decorative segment generation, image-to-segment importing, validation, safer saving, cleanup tools, and a professional workflow for HaxBall stadium creators.
+Built with **WPF / C#**, HaxStudio focuses on visual stadium editing, advanced map workflows, multi-renderer viewport performance, decorative segment generation, text-to-segment creation, image/SVG-to-segment importing, validation, cleanup tools, safer saving, and a professional workflow for HaxBall stadium creators.
 
-> Status: Public release / v1.4.0
+> Status: Public release / v1.5.0  
+> Current focus: Stable v1.6.0 release
+
+---
+
+## Download
+
+Download the latest installer from GitHub Releases:
+
+**HaxStudio v1.5.0**  
+https://github.com/xYigit58/HaxStudio/releases/tag/v1.5.0
+
+Installer asset:
+
+```text
+HaxStudio_Setup_v1.5.0.exe
+```
+
+If Windows SmartScreen appears, choose **More info > Run anyway**.
+
+---
+
+## Community
+
+Join the official HaxStudio Discord community to get support, report bugs, suggest features, share maps, and follow development updates.
+
+https://discord.gg/3aDwUt88td
 
 ---
 
@@ -20,17 +47,9 @@ Built with **WPF / C#**, HaxStudio focuses on visual stadium editing, advanced m
 
 HaxStudio is designed to make HaxBall stadium editing easier, safer, faster, and more visual.
 
-Instead of editing `.hbs` JSON files manually, users can open a stadium file, inspect objects, edit the map visually, generate decorative content, validate the stadium, and save the result back as a valid `.hbs` file.
+Instead of editing `.hbs` JSON files manually, users can open a stadium file, inspect objects, edit the map visually, generate decorative content, validate the stadium, and save/export the result back as a valid `.hbs` file.
 
-The project aims to provide a modern editor experience while preserving important HaxBall stadium data from real maps. HaxStudio is especially useful for advanced maps that are difficult to manage in browser-based editors, including maps with many joints, discs, curves, moving segment systems, decorative logos, dense object layouts, generated text, and imported image outlines.
-
----
-
-## Community
-
-Join the official HaxStudio Discord community to get support, report bugs, suggest features, share maps, and follow development updates.
-
-[Join the HaxStudio Discord Community](https://discord.gg/3aDwUt88td)
+HaxStudio is especially useful for advanced maps that are difficult to manage in browser-based editors, including maps with many joints, discs, curves, moving segment systems, decorative logos, dense object layouts, generated text, and imported image/SVG outlines.
 
 ---
 
@@ -58,11 +77,166 @@ Join the official HaxStudio Discord community to get support, report bugs, sugge
 
 ---
 
-## Key Features in v1.4.0
+## What's New in v1.5.0
 
-### Multi-Renderer Viewport System
+HaxStudio v1.5.0 is a major workflow, renderer, localization, image/SVG import, and release-polish update.
 
-HaxStudio now includes a complete multi-renderer system for better performance and compatibility.
+### Command Palette
+
+A VS Code-style **Command Palette** was added for quickly running editor commands.
+
+Shortcut:
+
+| Shortcut | Action |
+|---|---|
+| Ctrl + Shift + P | Open Command Palette |
+
+Example commands:
+
+- Open Stadium
+- Save Stadium
+- Preferences
+- Renderer Benchmark
+- Validate Stadium
+- Cleanup tools
+- Text to Segments
+- Smart Trace Image as Segments
+- Viewport toggles
+- Standard stadium templates
+
+### Renderer Benchmark
+
+HaxStudio now includes a **Renderer Benchmark** panel for measuring active viewport performance.
+
+It shows:
+
+- Current renderer
+- Average render time
+- Minimum / maximum render time
+- Estimated FPS
+- Snapshot build time
+- Object counts
+- Selected object count
+- Viewport information
+
+Useful for comparing Canvas, Direct2D, OpenGL, and Vulkan performance on your system.
+
+### Turkish Language Support
+
+HaxStudio now includes initial **Türkçe** language support.
+
+Language support:
+
+- English
+- Türkçe
+
+Many menus, panels, dialogs, popups, tooltips, validation messages, splash/loading messages, release notes, and runtime-created UI messages are translated.
+
+Technical terms such as **Vertex**, **Segment**, **Disc**, **Plane**, **Joint**, **Spawn**, **Renderer**, **Canvas**, **Direct2D**, **OpenGL**, **Vulkan**, **JSON**, **cMask**, **cGroup**, and **trait** are intentionally kept unchanged.
+
+### What's New Popup
+
+A new **What's New in v1.5.0** popup was added.
+
+- Appears automatically only once
+- Can be opened again from the Help menu
+- Includes release highlights
+- Includes Discord access
+- Supports English and Türkçe
+
+### About HaxStudio Polish
+
+The About section was improved with clearer release information:
+
+- HaxStudio version
+- Current focus
+- Renderer support
+- Language support
+- Community / Discord information
+
+### Discord Support
+
+Discord access was added inside HaxStudio.
+
+- Help > Join Discord
+- About HaxStudio > Join Discord
+- What's New popup Discord button
+
+---
+
+## Text to Segments
+
+Type something with your keyboard and let HaxStudio turn it into clean HaxBall segments for you.
+
+Text to Segments features:
+
+- Font support
+- Remembers latest used settings
+- Adjustable text size
+- Adjustable segment color
+- Font quality options
+- Optional no-collision decorative output
+- Click-and-drag placement inside the viewport
+- Automatically selects generated text after placement
+- Segment-based background drawing behind generated text
+
+This makes it easier to add names, titles, labels, server branding, decorative text, and map details directly into `.hbs` stadiums.
+
+---
+
+## Image to Segments / SVG Logo Import
+
+Upload a logo and let HaxStudio bring it to life inside HaxBall.
+
+HaxStudio includes a Smart Trace Image to Segments workflow for converting images and SVG logos into editable HaxBall segments.
+
+Supported formats:
+
+- SVG
+- PNG
+- JPG / JPEG
+- BMP
+
+Image to Segments features:
+
+- Image tracing presets
+- Remembered settings
+- Preview variants
+- Output color control
+- No-collision decorative mode
+- Trace quality settings
+- Edge style settings
+- HaxBall vertex/segment limit protection
+- Click-and-drag placement inside the viewport
+
+SVG import features:
+
+- SVG path import
+- Polygon / polyline import
+- Rect / circle / ellipse / line import
+- SVG text handling when real `<text>` elements exist
+- SVG logo-focused cleanup options
+- SVG Logo Simplifier v2
+
+SVG Logo Simplifier v2 includes:
+
+- SVG Detection Mode
+- Keep Details mode
+- Ignore tiny holes
+- Ignore tiny inner paths
+- Smooth curved contours
+- Prefer clean rings/circles
+- More aggressive point merge for SVG
+
+This is especially useful for decorative logos, club crests, icons, symbols, and map branding.
+
+Complex logos may still require manual cleanup after import.
+
+---
+
+## Multi-Renderer Viewport System
+
+HaxStudio includes a complete multi-renderer viewport system for better performance and compatibility.
 
 Available renderers:
 
@@ -73,273 +247,101 @@ Available renderers:
 
 Renderer features:
 
-- Renderer selection at the top of Preferences
+- Renderer selection in Preferences
 - Automatic renderer setting save support
-- Clean viewport renderer badge showing the active renderer
-- Real-time render ms updates for all renderers
+- Viewport renderer badge
+- Real-time render ms updates
+- Renderer Benchmark panel
 - Warning when switching renderer while a stadium is open
 - Improved consistency across Canvas, Direct2D, OpenGL, and Vulkan
 
-### Text to Segments
+---
 
-HaxStudio can generate real HaxBall segments from text.
+## Editor Tools
 
-- Uppercase letter support
-- Lowercase letter support
-- Adjustable text size
-- Adjustable segment color
-- Click-and-drag placement inside the viewport
-- Automatically selects generated text after placement
-- Decorative / no-collision output by default
+HaxStudio includes a growing set of visual editing and workflow tools.
 
-This makes it easier to add names, titles, labels, server branding, logos, and decorative text directly into `.hbs` maps.
+### Core Tools
 
-### Insert Shape
+- Select Tool
+- Move Tool
+- Add Vertex
+- Add Segment
+- Add Disc
+- Add Goal
+- Add Plane
+- Add Red Spawn
+- Add Blue Spawn
+- Add Joint
+- Measure Tool
+- Mirror placement modes
+- Rotation handle
 
-HaxStudio includes a preset shape generator under the Tools menu.
+### Viewport Tools
 
-Available categories:
+- Zoom and pan
+- Reset viewport
+- Grid display
+- Snap to Grid
+- Custom snap size menu
+- Adjustable vertex size
+- Optional invisible object display
+- Optional plane display
+- Optional background stripe display
+- Viewport mini toolbar
+- Renderer badge
 
-- Basic
-- Symbols
-- Objects
+### Generated Content
 
-Included preset shapes:
+- Text to Segments
+- Insert Shape
+- Smart Trace Image as Segments
+- SVG Logo import
+- Segment-based text backgrounds
+- Decorative no-collision output by default
 
-- Star
-- Heart
-- Triangle
-- Square
-- Circle
-- Diamond
-- Pentagon
-- Hexagon
-- Octagon
-- Rounded Rectangle
-- Ring
-- Spiral
-- Wave Line
-- Zigzag Line
-- Plus
-- Minus
-- X Cross
-- Check Mark
-- Exclamation
-- Question Mark
-- Lightning
-- Fire
-- Sun
-- Crescent Moon
-- Target
-- Flower
-- Eye
-- Skull
-- Sword
-- Anchor
-- Arrow
-- Play Button
-- Pause Button
-- Shield
-- Crown
-- House
-- Flag
-- Trophy
-- Medal
-- Key
-- Lock
-- Gear
-- Bell
-- Book
-- Camera
-- Music Note
-- Cloud
-- Tree
-- Leaf
+---
 
-All inserted shapes are generated as real HaxBall segments and are decorative / no-collision by default.
+## Layers Panel
 
-### Shape Placement System
+The Layers panel helps manage dense maps and generated objects.
 
-Generated shapes now use a controlled placement workflow.
+Features include:
 
-- Select a shape from Tools > Insert Shape
-- A preview box appears in the viewport
-- Click or drag the preview box to place it on the map
-- The created shape is automatically selected
-- Press Escape to cancel placement
+- Object list grouped by type
+- Search / filtering
+- Selected object highlighting
+- Hide / show support
+- Lock / unlock support
+- Copy coordinates
+- Copy JSON
+- Improved full JSON copy behavior for selected objects
+- Better workflow for generated logos, text, and dense decorative maps
 
-This makes preset shape placement more predictable and easier to control.
+---
 
-### Import Image as Segments (BETA)
+## Validation and Cleanup
 
-HaxStudio includes an experimental image-to-segment converter.
+HaxStudio includes practical validation and cleanup tools for real HaxBall maps.
 
-Supported formats:
+Validation features:
 
-- PNG
-- JPG
-- BMP
-
-Best suited for:
-
-- Logos
-- Icons
-- Simple shapes
-- Transparent PNG images
-- High-contrast images
-- Solid-background images
-
-Features:
-
-- Converts image outlines into real HaxBall segments
-- Automatic outline tracing
-- Polygon simplification
-- Straight-edge cleanup
-- HaxBall vertex/segment limit protection
-- Vertex reuse where possible
-- Click-and-drag placement inside the viewport
-- Decorative / no-collision output by default
-
-This feature is marked as **BETA** because complex images may still require manual cleanup after import.
-
-### Move Tool
-
-HaxStudio now includes a dedicated Move tool next to Select in the toolbar.
-
-- Select one or more objects
-- Switch to Move mode
-- Drag the selected objects directly in the viewport
-- Useful for generated text, preset shapes, imported image outlines, logos, and grouped stadium objects
-
-Hotkey:
-
-| Shortcut | Action |
-|---|---|
-| Ctrl + Shift + M | Move Tool |
-
-### Cross-map Copy / Paste
-
-HaxStudio supports copying selected stadium objects from one map and pasting them into another map.
-
-- Copy objects from one `.hbs` stadium and paste them into another
-- Correctly remaps segment vertex references during paste
-- Automatically includes connected vertexes when copying segments
-- Automatically includes connected discs when copying joints
-- Handles copied trait data more safely
-- Useful for moving logos, decorations, patterns, and reusable stadium parts between maps
-
-### Paste Capacity and HaxBall Limit Checks
-
-HaxStudio helps prevent pasted objects from creating stadiums that HaxBall cannot load.
-
-- Paste capacity preview before inserting copied objects
-- Shows current object counts and paste cost
-- Warns when paste would exceed HaxBall object/index limits
-- Helps avoid broken exports caused by too many vertexes, segments, discs, or joints
-- Better status messages after copy and paste operations
-
-### Safer HaxBall Compatibility Validator
-
-The validator is designed to be practical for real community maps.
-
-- Critical issues are reserved for problems that can realistically prevent HaxBall from loading a stadium
-- Many previously strict checks are Warning or Info
-- Clearer HaxBall compatibility status
-- Better distinction between invalid stadium data and mapper-intended unusual data
-- Practical validation for real `.hbs` files
-
-### Safe Export Report
-
-Saving and exporting provides a clearer compatibility summary.
-
-- Export completion report
 - HaxBall compatibility status
-- Object count summary
-- Validator summary
-- Helps users understand whether the exported map is likely to open in HaxBall
+- Critical / warning / info severity
+- Object issue list
+- Copy validation messages
+- Focus/select issue targets where possible
+- Safer save/export validation warnings
 
-### Selection Statistics
-
-The selection information panel gives useful data for selected objects and object groups.
-
-- Selected object counts
-- Multi-selection bounds
-- Selection width and height
-- Paste cost information
-- Helpful when selecting logos or dense object groups
-
-### Cleanup Tools
-
-HaxStudio includes safe cleanup tools for common stadium issues.
+Cleanup tools:
 
 - Cleanup Safe Issues
 - Remove Unused Vertexes
 - Remove Unused Traits
+- Capacity reporting
 - Safer cleanup for invalid or unnecessary data
-- Helps reduce clutter before export
 
-### Measure Tool Upgrades
-
-The Measure Tool supports more precise mapping workflows.
-
-- Live coordinate and measurement information
-- Distance, delta X, delta Y, and angle display
-- Vertex snapping for accurate measurement
-- Vertex locking for stable vertex-to-vertex measurements
-- Guide/corner snap points to help draw symmetric segments
-- Improved measurement overlay information
-
-### Rotation Handle
-
-Selected objects can be rotated directly from the viewport.
-
-- Rotate handle appears near the selected object or multi-selection group
-- Drag the handle to rotate selected objects
-- Works with single selection and multi-selection
-- Useful for logos, patterns, decorative objects, and repeated stadium structures
-
-### Curve and Hitbox Improvements
-
-Curved segment interaction and export safety have been improved.
-
-- More precise curved segment hitboxes
-- Better curved segment selection behavior
-- Safer handling of curve-related export data
-- Preserves important HaxBall curve data more carefully
-
-### Update Checker
-
-HaxStudio includes an update checker that can read the latest release manifest.
-
-- Automatic update check on startup
-- Current version display
-- Latest version check
-- Release notes display
-- Release page / installer download support
-
-### Anonymous Usage Analytics Preference
-
-HaxStudio includes an optional anonymous usage analytics preference.
-
-The setting can be turned off anytime in Preferences.
-
-HaxStudio only sends minimal anonymous app usage data:
-
-- App start activity
-- App version
-- Selected renderer
-- Anonymous install ID hash
-
-HaxStudio does **not** send:
-
-- Map files
-- Map names
-- File paths
-- Usernames
-- Emails
-- Locations
-- Discord information
-- Personal content
+The validator is designed to be practical for real community maps: critical issues are reserved for problems that are likely to block HaxBall loading, while mapper-quality notes are shown as warnings or info.
 
 ---
 
@@ -348,6 +350,7 @@ HaxStudio does **not** send:
 - Open `.hbs` stadium files
 - Save existing stadium files
 - Save As support
+- Export Stadium workflow
 - New stadium creation
 - Recent Files menu
 - JSON Apply / Refresh workflow
@@ -392,40 +395,6 @@ Preserved data includes:
 
 ---
 
-## Editor Tools
-
-- Modern visual stadium viewport
-- Canvas fallback renderer
-- Direct2D renderer
-- OpenGL renderer
-- Vulkan renderer
-- HaxPuck-inspired grass background
-- Zoom and pan support
-- Reset viewport
-- Grid display option
-- Snap to Grid
-- Adjustable grid size
-- Adjustable vertex size
-- Optional invisible object display
-- Optional plane display
-- Optional background stripe display
-- Segment line and curve rendering
-- HaxBall-style arc visualization
-- Curve handle editing
-- Text to Segments
-- Insert Shape
-- Import Image as Segments (BETA)
-- Move Tool
-- Measure Tool with vertex snapping and locking
-- Measurement guide/corner snap points
-- Overlapping segment selection by repeated clicking
-- Viewport mini toolbar
-- Viewport rotation handle
-- Mirror selected horizontally / vertically
-- Auto Mirror placement mode
-
----
-
 ## Selection System
 
 - Click selection
@@ -435,7 +404,7 @@ Preserved data includes:
 - Right drag selection for objects touched by the rectangle
 - Multi-delete
 - Drag selected objects
-- Dedicated Move tool for dragging selected objects
+- Dedicated Move tool
 - Drag multiple selected objects together
 - Rotate selected objects from the viewport
 - Copy selected object groups
@@ -465,269 +434,120 @@ Supported inspector sections include:
 - Selection information panel
 - Selection statistics and paste cost information
 
-Editable values include position, radius, color, curve, team, plane normal / distance, collision group, collision mask, trait, visibility, bounce coefficient, inverse mass, damping, speed, gravity, and joint values.
-
----
-
-## Layers Panel
-
-- Search box
-- Type filter
-- Selected object highlight
-- Double click object to focus in viewport
-- Right click context menu
-- Duplicate object
-- Delete object
-- Hide / Show object
-- Lock / Unlock object
-- Show all hidden objects
-- Unlock all locked objects
-- Lazy update support for large maps
+Editable values include position, radius, color, curve, team, collision values, physics values, joint values, spawn coordinates, and more.
 
 ---
 
 ## JSON Editor
 
-HaxStudio includes a built-in JSON editor for advanced editing.
+HaxStudio includes an integrated JSON editor for advanced users.
 
-- View current stadium JSON
-- Edit JSON manually
-- Apply JSON changes to the editor
-- Refresh JSON from editor data
-- JSON edits update the viewport
-- JSON edits are applied before saving
-- Invalid JSON prevents unsafe saving
-- Lazy preview update support for large maps
-- JSON search support
-- Syntax highlighting
+- View current `.hbs` JSON
+- Apply manual JSON edits back into the visual editor
+- Refresh JSON from current visual data
+- JSON syntax highlighting
+- JSON search
+- Safer save/export preparation
+- Preserves important HaxBall data where supported
 
 ---
 
-## Validator
+## AutoSave / Recovery
 
-The Stadium Validator helps users find compatibility and quality issues before releasing a stadium.
+HaxStudio includes AutoSave support to reduce data-loss risk.
 
-- HaxBall compatibility status
-- Critical / Warning / Info severity levels
-- Vertex, segment, disc and joint reference checks
-- HaxBall object/index limit checks
-- Invalid numeric value detection
-- Color validation
-- Goal validation
-- Ball physics reference checks
-- Trait reference checks
-- Less aggressive critical reporting for maps that still load in HaxBall
+- Optional AutoSave
+- Configurable interval
+- Custom AutoSave folder support
+- Backup file generation
+- Preferences integration
 
 ---
 
-## Cleanup Tools
+## Anonymous Usage Analytics
 
-HaxStudio includes cleanup tools for reducing clutter and fixing safe issues.
+HaxStudio includes optional anonymous usage analytics.
 
-- Cleanup Safe Issues
-- Remove Unused Vertexes
-- Remove Unused Traits
-- Cleanup invalid references where safe
-- Helps prepare maps for export and release
+The setting can be turned off anytime in Preferences.
 
----
+HaxStudio only sends minimal anonymous app usage data:
 
-## Settings / Preferences
+- App start activity
+- App version
+- Selected renderer
+- Anonymous install ID
 
-HaxStudio includes an in-app Settings window.
+HaxStudio does **not** send:
 
-Settings categories:
-
-- Hotkeys
-- Preferences
-- Themes
-- Privacy
-- Language
-- Check for Updates
-- About HaxStudio
-
-Preferences include:
-
-- Renderer selection
-- Discord Rich Presence enable / disable
-- Anonymous usage analytics enable / disable
-- Restore Defaults option
+- Map files
+- Map names
+- File paths
+- Usernames
+- Emails
+- Locations
+- Discord information
+- Personal content
 
 ---
 
-## Update System
+## System Requirements
 
-HaxStudio includes an update checker that reads the latest release manifest from the update repository.
+- Windows 10 / Windows 11
+- x64 system recommended
+- .NET Desktop Runtime if using a framework-dependent build
+- GPU driver recommended for accelerated renderers
 
-- Automatic update check on startup
-- Current version display
-- Latest version check
-- Release notes display
-- Release page / installer download support
+Renderer notes:
 
----
-
-## Hotkeys
-
-### Tools
-
-| Shortcut | Action |
-|---|---|
-| Ctrl + L | Select Tool |
-| Ctrl + Shift + M | Move Tool |
-| Ctrl + E | Add Vertex |
-| Ctrl + T | Add Segment |
-| Ctrl + I | Add Disc |
-| Ctrl + G | Add Goal |
-| Ctrl + P | Add Plane |
-| Ctrl + R | Add Red Spawn |
-| Ctrl + B | Add Blue Spawn |
-| Ctrl + M | Measure Tool |
-
-### Editing
-
-| Shortcut | Action |
-|---|---|
-| Ctrl + Z | Undo |
-| Ctrl + Y | Redo |
-| Ctrl + C | Copy |
-| Ctrl + V | Paste |
-| Ctrl + D | Duplicate |
-| Ctrl + A | Select all stadium objects |
-| Ctrl + Shift + H | Mirror selected horizontally |
-| Ctrl + Shift + V | Mirror selected vertically |
-| Delete / Backspace | Delete selected object(s) |
-| Escape | Clear selection / cancel active tool |
-
-### Viewport
-
-| Shortcut | Action |
-|---|---|
-| Mouse Wheel | Zoom in / out |
-| Middle Mouse Drag | Pan viewport |
-| Space + Left Drag | Pan viewport |
-| F / Home | Reset viewport |
-| Ctrl + Click | Multi-select |
-| Left Drag | Select fully contained objects |
-| Right Drag | Select touched objects |
-
-### JSON Editor
-
-| Shortcut | Action |
-|---|---|
-| Ctrl + F | Search JSON |
-| F3 | Next search match |
-| Shift + F3 | Previous search match |
+- Canvas is the safest fallback renderer.
+- Direct2D is recommended for most users.
+- OpenGL and Vulkan availability depends on system drivers.
 
 ---
 
-## Download
+## Installation
 
-Download the latest Windows installer from the GitHub Releases page.
-
-Latest release:
-
-```text
-HaxStudio v1.4.0
-```
-
-Installer asset:
-
-```text
-HaxStudio_Setup_v1.4.0.exe
-```
+1. Download `HaxStudio_Setup_v1.5.0.exe` from Releases.
+2. Run the installer.
+3. Launch HaxStudio.
+4. Choose your preferred renderer in Preferences.
+5. Open or create a `.hbs` stadium.
 
 ---
 
-## Platform
+## Known Notes
 
-- Windows x64
-- Native WPF desktop application
-- HaxBall `.hbs` stadium JSON files
-
----
-
-## Technology
-
-- Language: C#
-- UI Framework: WPF
-- Runtime: .NET 8 Windows
-- Publish mode: Self-contained Windows x64 installer
-- Platform: Windows
-- File Type: HaxBall `.hbs` stadium JSON
-- IDE: Visual Studio
+- Complex Image to Segment / SVG logo imports may still require manual cleanup.
+- Very dense maps can still hit HaxBall object limits.
+- Some renderer behavior may depend on GPU driver support.
+- Turkish language support is actively improving; some technical terms intentionally remain English.
 
 ---
 
-## Version History
+## Roadmap / Current Focus
 
-### v1.4.0
+Current focus for the next major work cycle:
 
-- Full multi-renderer support with Canvas fallback, Direct2D, OpenGL, and Vulkan
-- Renderer selection in Preferences
-- Renderer badge and real-time render ms display
-- Automatic update check on startup
-- Ctrl+A select all
-- Anonymous usage analytics preference
-- Text to Segments tool with uppercase and lowercase support
-- Insert Shape tool with Basic, Symbols, and Objects categories
-- Shape placement preview workflow
-- Import Image as Segments (BETA)
-- Image outline simplification and HaxBall limit protection
-- Toolbar Move tool with Ctrl + Shift + M hotkey
-- Multi-select segment color editing fixes
-- Manual color apply with Enter fix
-- Mirror Tool dark theme and single/triple mirror improvements
-- Direct2D, OpenGL, and Vulkan viewport fixes
-- Export Stadium naming and dialog improvements
-- Self-contained .NET 8 Windows x64 installer support
+**Stable v1.6.0 release**
 
-### v1.3.0
+Likely future focus areas:
 
-- Cross-map copy/paste support
-- Paste capacity and HaxBall limit checks
-- Safer HaxBall compatibility validator
-- Safe export report
-- Selection statistics and paste cost information
-- Cleanup tools for safe issues, unused vertexes and unused traits
-- Measure Tool upgrades with vertex snapping, locking and guide snap points
-- Canvas-based rotation handle for selected objects
-- Curved segment hitbox improvements
-- Export safety improvements
-- Overflow crash fix for unusual numeric values
-
-### v1.2.0
-
-- Advanced joint-heavy map editing workflow
-- Moving segment map editing support
-- Recent Files system
-- Crash Recovery system
-- Safer save/export validation flow
-- Improved Stadium Validator checks
-- Large map performance improvements
-- Updated screenshots and README
-
-### v1.1.0
-
-- Config system
-- Installer support
-- Persistent user settings
-- Improved update workflow
-- AutoSave backup system
-- Improved panel layout workflow
-
-### v1.0.0
-
-- Initial public release
-- Native Windows HaxBall stadium editor
-- Visual viewport editing
-- JSON editing
-- Inspector, Layers, and Validator panels
+- More Image to Segment and SVG logo quality improvements
+- Better localization coverage
+- More release polish and bug fixes
+- Mapper workflow improvements
+- Community feedback from Discord and Reddit
 
 ---
 
-## Notes
+## License
 
-HaxStudio is recommended for HaxBall mappers working with advanced stadiums, large maps, joint-heavy mechanics, moving segment systems, logos, reusable object groups, generated text, imported image outlines, decorative shapes, or long editing sessions.
+HaxStudio is currently distributed as a compiled public release.  
+All rights reserved unless a separate license file states otherwise.
 
-Some maps may still fail to load in HaxBall if they exceed HaxBall's internal object/index limits. HaxStudio warns about these cases more clearly before export.
+---
+
+## Links
+
+- Latest Release: https://github.com/xYigit58/HaxStudio/releases/tag/v1.5.0
+- Discord: https://discord.gg/3aDwUt88td
