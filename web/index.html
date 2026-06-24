@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HaxStudio Web</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== ROW 0 : Title / Menu bar ===================== -->
+  <div class="titlebar">
+    <div class="brand">
+      <div class="brand-logo">H</div>
+      <div class="brand-text">
+        <div class="brand-name">HaxStudio</div>
+        <div class="brand-sub">Stadium Editor</div>
+      </div>
+    </div>
+
+    <nav class="menu" id="menu">
+      <div class="menu-item" data-menu="file">
+        <span class="menu-ico">&#128196;</span><span>File</span>
+        <div class="menu-pop">
+          <div class="menu-row" data-act="new"><span class="mi">&#128459;</span>New Stadium</div>
+          <div class="menu-row" data-act="open"><span class="mi">&#128193;</span>Open .hbs</div>
+          <div class="menu-sep"></div>
+          <div class="menu-row" data-act="save"><span class="mi">&#128190;</span>Save / Export .hbs</div>
+          <div class="menu-row" data-act="export-png"><span class="mi">&#128247;</span>Export Map as PNG</div>
+          <div class="menu-sep"></div>
+          <div class="menu-row" data-act="copyjson"><span class="mi">&#128203;</span>Copy JSON</div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="edit">
+        <span class="menu-ico">&#9999;</span><span>Edit</span>
+        <div class="menu-pop">
+          <div class="menu-row" data-act="undo"><span class="mi">&#8630;</span>Undo<span class="gesture">Ctrl+Z</span></div>
+          <div class="menu-row" data-act="redo"><span class="mi">&#8631;</span>Redo<span class="gesture">Ctrl+Y</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-row" data-act="duplicate"><span class="mi">&#10697;</span>Duplicate<span class="gesture">Ctrl+D</span></div>
+          <div class="menu-row" data-act="delete"><span class="mi">&#128465;</span>Delete<span class="gesture">Del</span></div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="view">
+        <span class="menu-ico">&#128065;</span><span>View</span>
+        <div class="menu-pop">
+          <div class="menu-row" data-act="toggle-grid"><span class="mi">&#9638;</span>Toggle Grid</div>
+          <div class="menu-row" data-act="reset-view"><span class="mi">&#9974;</span>Reset Viewport</div>
+          <div class="menu-sep"></div>
+          <div class="menu-row" data-act="panel-inspector"><span class="mi">&#9881;</span>Inspector</div>
+          <div class="menu-row" data-act="panel-layers"><span class="mi">&#9776;</span>Layers</div>
+          <div class="menu-row" data-act="panel-json"><span class="mi">{ }</span>JSON</div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="tools">
+        <span class="menu-ico">&#128295;</span><span>Tools</span>
+        <div class="menu-pop">
+          <div class="menu-row" data-act="validate"><span class="mi">&#128737;</span>Validate Stadium</div>
+          <div class="menu-row" data-act="capacity"><span class="mi">&#9202;</span>Show Capacity Report</div>
+          <div class="menu-row" data-act="text-segments"><span class="mi">&#128172;</span>Text to Segments</div>
+
+          <div class="menu-sub">
+            <div class="menu-row has-sub"><span class="mi">&#11040;</span>Insert Shape<span class="sub-arrow">&#8250;</span></div>
+            <div class="menu-pop submenu" id="insertShapeSub"></div>
+          </div>
+
+          <div class="menu-sub">
+            <div class="menu-row has-sub"><span class="mi">&#129529;</span>Cleanup Tools<span class="sub-arrow">&#8250;</span></div>
+            <div class="menu-pop submenu">
+              <div class="menu-row" data-act="cleanup-vertexes">Remove Unused Vertexes</div>
+              <div class="menu-row" data-act="cleanup-traits">Remove Unused Traits</div>
+            </div>
+          </div>
+
+          <div class="menu-sub">
+            <div class="menu-row has-sub"><span class="mi">&#128193;</span>Open Standard Stadium<span class="sub-arrow">&#8250;</span></div>
+            <div class="menu-pop submenu">
+              <div class="menu-row" data-std="classic">Classic</div>
+              <div class="menu-row" data-std="rounded">Rounded</div>
+              <div class="menu-row" data-std="easy">Easy</div>
+              <div class="menu-row" data-std="small">Small</div>
+              <div class="menu-sep"></div>
+              <div class="menu-row" data-std="hockey">Hockey</div>
+              <div class="menu-row" data-std="bighockey">Big Hockey</div>
+              <div class="menu-sep"></div>
+              <div class="menu-row" data-std="big">Big</div>
+              <div class="menu-row" data-std="bigrounded">Big Rounded</div>
+              <div class="menu-row" data-std="bigeasy">Big Easy</div>
+              <div class="menu-row" data-std="huge">Huge</div>
+            </div>
+          </div>
+
+          <div class="menu-sep"></div>
+          <div class="menu-row tool-item" data-tool="Select"><span class="check">OK</span>Select<span class="gesture">Ctrl+L</span></div>
+          <div class="menu-row tool-item" data-tool="AddVertex"><span class="check">OK</span>Add Vertex<span class="gesture">Ctrl+E</span></div>
+          <div class="menu-row tool-item" data-tool="AddSegment"><span class="check">OK</span>Add Segment<span class="gesture">Ctrl+T</span></div>
+          <div class="menu-row tool-item" data-tool="AddDisc"><span class="check">OK</span>Add Disc<span class="gesture">Ctrl+I</span></div>
+          <div class="menu-row tool-item" data-tool="AddGoal"><span class="check">OK</span>Add Goal<span class="gesture">Ctrl+G</span></div>
+          <div class="menu-row tool-item" data-tool="AddPlane"><span class="check">OK</span>Add Plane<span class="gesture">Ctrl+P</span></div>
+          <div class="menu-row tool-item" data-tool="AddRedSpawn"><span class="check">OK</span>Add Red Spawn<span class="gesture">Ctrl+R</span></div>
+          <div class="menu-row tool-item" data-tool="AddBlueSpawn"><span class="check">OK</span>Add Blue Spawn<span class="gesture">Ctrl+B</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-row tool-item" data-tool="Measure"><span class="check">OK</span>Measure<span class="gesture">Ctrl+M</span></div>
+          <div class="menu-row tool-item" data-tool="Joint"><span class="check">OK</span>Joint Tool<span class="gesture">Ctrl+J</span></div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="help">
+        <span class="menu-ico">&#10068;</span><span>Help</span>
+        <div class="menu-pop">
+          <div class="menu-row" data-act="discord"><span class="mi">&#128172;</span>Join Discord</div>
+          <div class="menu-row" data-act="about"><span class="mi">&#8505;</span>About HaxStudio Web</div>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- ===================== ROW 1 : Toolbar ===================== -->
+  <div class="toolbar">
+    <div class="tool-group" id="toolGroup">
+      <button class="topbtn active" data-tool="Select" title="Select tool (Ctrl+L)"><span class="tb-ico">&#129092;</span>Select</button>
+      <button class="topbtn" data-tool="Move" title="Move selected (drag)"><span class="tb-ico">&#10021;</span>Move</button>
+      <button class="topbtn" data-tool="AddVertex" title="Add Vertex (Ctrl+E)"><span class="tb-ico">&#9679;</span>Vertex</button>
+      <button class="topbtn" data-tool="AddSegment" title="Add Segment (Ctrl+T)"><span class="tb-ico">&#9586;</span>Segment</button>
+      <button class="topbtn" data-tool="AddDisc" title="Add Disc (Ctrl+I)"><span class="tb-ico">&#9711;</span>Disc</button>
+      <button class="topbtn" data-tool="AddGoal" title="Add Goal (Ctrl+G)"><span class="tb-ico">&#9917;</span>Goal</button>
+      <button class="topbtn" data-tool="AddPlane" title="Add Plane (Ctrl+P)"><span class="tb-ico">&#8599;</span>Plane</button>
+      <button class="topbtn" data-tool="AddRedSpawn" title="Add Red Spawn (Ctrl+R)"><span class="tb-ico" style="color:#ff6b6b">&#10142;</span>Red Spawn</button>
+      <button class="topbtn" data-tool="AddBlueSpawn" title="Add Blue Spawn (Ctrl+B)"><span class="tb-ico" style="color:#6ba8ff">&#10142;</span>Blue Spawn</button>
+      <button class="topbtn" data-tool="Measure" title="Measure distance (Ctrl+M)"><span class="tb-ico">&#9586;</span>Measure</button>
+      <button class="topbtn" data-tool="Joint" title="Connect two discs with a joint (Ctrl+J)"><span class="tb-ico">&#128279;</span>Joint</button>
+    </div>
+    <div class="tool-right">
+      <div class="tool-hint">Ctrl+Z/Y &nbsp;-&nbsp; Ctrl+C/V/D &nbsp;-&nbsp; Tools: Ctrl+L/E/T/I/G/P/R/B/M/J, Ctrl+Shift+M Move</div>
+      <button class="supportbtn" id="supportBtn" title="Support HaxStudio on Buy Me a Coffee">
+        <span class="tb-ico">&#9749;</span>Support HaxStudio
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== ROW 2 : Main area ===================== -->
+  <div class="main">
+    <!-- Viewport -->
+    <div class="viewport-col">
+      <div class="viewport-header">
+        <div class="vh-left">
+          <span class="vh-title">Viewport</span>
+          <span class="vh-info" id="viewportInfo">Zoom: 100% | Pan: 0, 0</span>
+        </div>
+        <div class="vh-right" id="viewportMini">
+          <button class="minibtn" data-mini="grid" title="Show / hide grid">&#9638; Grid</button>
+          <button class="minibtn" data-mini="snap" title="Snap to grid: Off / 25 / 50 / 75 / 100">&#129522; <span id="snapLabel">Snap</span></button>
+          <button class="minibtn active" data-mini="vertexes" title="Show / hide vertexes">&#9679; Vertexes</button>
+          <button class="minibtn active" data-mini="segments" title="Show / hide segments">&#9586; Segments</button>
+          <button class="minibtn active" data-mini="discs" title="Show / hide discs">&#9711; Discs</button>
+          <button class="minibtn active" data-mini="planes" title="Show / hide planes">&#8599; Planes</button>
+          <button class="minibtn" data-mini="invisible" title="Show invisible objects">&#128065; Invisible</button>
+          <button class="minibtn" data-mini="mirror" title="Mirror Mode: Single or Triple mirror when placing new objects">&#9707; Mirror</button>
+          <button class="minibtn" data-mini="reset" title="Reset viewport">&#9974; Reset</button>
+          <span class="vh-divider"></span>
+          <button class="minibtn" data-mini="play" title="Play / Pause movement simulation"><span id="playIcon">&#9654;</span>&nbsp;<span id="playText">Play</span></button>
+          <button class="minibtn" data-mini="resetsim" title="Reset simulation to the edited positions">&#8635; Reset Sim</button>
+          <span class="vh-divider"></span>
+          <span class="vh-mouse" id="mousePos">HaxBall X: 0  Y: 0</span>
+          <span class="measure-badge" id="measureBadge" style="display:none"><span id="measureText">Measure: click start</span></span>
+        </div>
+      </div>
+      <div class="viewport-host">
+        <canvas id="mapCanvas"></canvas>
+        <div class="renderer-badge">Canvas 2D</div>
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="right-panel" id="rightPanel">
+      <div class="tabs" id="panelTabs">
+        <div class="tab active" data-tab="inspector">Inspector</div>
+        <div class="tab" data-tab="layers">Layers</div>
+        <div class="tab" data-tab="validator">Validator</div>
+        <div class="tab" data-tab="json">JSON</div>
+        <div class="tab" data-tab="history">History</div>
+      </div>
+
+      <!-- Inspector -->
+      <div class="tab-page active" data-page="inspector">
+        <div class="scroll">
+          <div class="expander open" id="exp-selection">
+            <div class="exp-head">Selection / Coordinates</div>
+            <div class="exp-body">
+              <div class="prop-label">Selected Object</div>
+              <input class="inp" id="selObjText" value="None" readonly />
+              <div class="prop-grid">
+                <div><div class="prop-label">Position / Data A</div><input class="inp" id="posA" value="0" /></div>
+                <div><div class="prop-label">Position / Data B</div><input class="inp" id="posB" value="0" /></div>
+              </div>
+              <div class="info-box">
+                <div class="info-cap">Selection Info</div>
+                <div class="mono" id="selInfo">No selection</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="expander open" id="exp-props">
+            <div class="exp-head">Object Properties</div>
+            <div class="exp-body" id="objectPropsBody">
+              <div class="muted small">Select an object to edit its properties.</div>
+            </div>
+          </div>
+
+          <div class="expander" id="exp-goalteam">
+            <div class="exp-head">Goal Team</div>
+            <div class="exp-body">
+              <select class="inp" id="goalTeam"><option>Red</option><option>Blue</option></select>
+              <div class="layers-actions" style="margin-top:6px">
+                <button class="smallbtn" id="goalSetRed">Set Red</button>
+                <button class="smallbtn" id="goalSetBlue">Set Blue</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="expander" id="exp-bg">
+            <div class="exp-head">Background</div>
+            <div class="exp-body">
+              <div class="prop-label">Type</div>
+              <select class="inp" id="bgType"><option>none</option><option>grass</option><option>hockey</option></select>
+              <div class="prop-grid">
+                <div><div class="prop-label">Color</div><input class="inp" id="bgColor" /></div>
+                <div><div class="prop-label">Width</div><input class="inp" id="bgWidth" /></div>
+              </div>
+              <div class="prop-grid">
+                <div><div class="prop-label">Height</div><input class="inp" id="bgHeight" /></div>
+                <div><div class="prop-label">KickOff Radius</div><input class="inp" id="bgKick" /></div>
+              </div>
+              <div class="prop-label">Corner Radius</div>
+              <input class="inp" id="bgCorner" />
+            </div>
+          </div>
+
+          <div class="expander" id="exp-stadium">
+            <div class="exp-head">Stadium</div>
+            <div class="exp-body">
+              <div class="prop-label">Name</div>
+              <input class="inp" id="stName" />
+              <div class="prop-grid">
+                <div><div class="prop-label">width</div><input class="inp" id="stWidth" /></div>
+                <div><div class="prop-label">height</div><input class="inp" id="stHeight" /></div>
+              </div>
+              <div class="prop-grid">
+                <div><div class="prop-label">spawnDistance</div><input class="inp" id="stSpawn" /></div>
+                <div><div class="prop-label">cameraFollow</div><input class="inp" id="stCam" placeholder="ball / player" /></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="expander open" id="exp-physics">
+            <div class="exp-head">Stadium Physics</div>
+            <div class="exp-body">
+              <div class="muted small" style="margin-bottom:10px">These top-level .hbs values are edited when no object is selected. They are saved as canBeStored, playerPhysics and ballPhysics.</div>
+              <div class="section-title">Stadium Properties</div>
+              <label class="chk"><input type="checkbox" id="stCanStore" checked /> canBeStored</label>
+
+              <div class="section-title">Player Physics</div>
+              <div class="prop-grid">
+                <div>
+                  <div class="prop-label">gravity X / Y</div>
+                  <div class="prop-grid"><input class="inp" id="pGravX" value="0" /><input class="inp" id="pGravY" value="0" /></div>
+                  <div class="prop-label">radius</div><input class="inp" id="pRadius" value="15" />
+                  <div class="prop-label">bCoef</div><input class="inp" id="pBCoef" value="0.5" />
+                  <div class="prop-label">invMass</div><input class="inp" id="pInvMass" value="0.5" />
+                </div>
+                <div>
+                  <div class="prop-label">damping</div><input class="inp" id="pDamping" value="0.96" />
+                  <div class="prop-label">cGroup</div><input class="inp" id="pCGroup" value="red, blue" />
+                  <div class="prop-label">acceleration</div><input class="inp" id="pAccel" value="0.1" />
+                </div>
+              </div>
+
+              <div class="section-title">Player Physics (Kick)</div>
+              <div class="prop-grid">
+                <div>
+                  <div class="prop-label">kickingAcceleration</div><input class="inp" id="pKickAccel" value="0.07" />
+                  <div class="prop-label">kickingDamping</div><input class="inp" id="pKickDamp" value="0.96" />
+                </div>
+                <div>
+                  <div class="prop-label">kickStrength</div><input class="inp" id="pKickStr" value="5" />
+                  <div class="prop-label">kickback</div><input class="inp" id="pKickback" value="0" />
+                </div>
+              </div>
+
+              <div class="section-title">Ball Physics</div>
+              <div class="prop-grid">
+                <div>
+                  <div class="prop-label">gravity X / Y</div>
+                  <div class="prop-grid"><input class="inp" id="bGravX" value="0" /><input class="inp" id="bGravY" value="0" /></div>
+                  <div class="prop-label">radius</div><input class="inp" id="bRadius" value="10" />
+                  <div class="prop-label">bCoef</div><input class="inp" id="bBCoef" value="0.5" />
+                  <div class="prop-label">invMass</div><input class="inp" id="bInvMass" value="1" />
+                </div>
+                <div>
+                  <div class="prop-label">damping</div><input class="inp" id="bDamping" value="0.99" />
+                  <div class="prop-label">color</div><input class="inp" id="bColor" value="#FFFFFF" />
+                  <div class="prop-label">cMask</div><input class="inp" id="bCMask" value="all" />
+                  <div class="prop-label">cGroup</div><input class="inp" id="bCGroup" value="ball" />
+                </div>
+              </div>
+
+              <div class="layers-actions" style="justify-content:flex-end;margin-top:12px">
+                <button class="smallbtn" id="physReset">Reset Defaults</button>
+                <button class="topbtn primary" id="physApply" style="height:30px;min-width:110px">Apply Physics</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layers -->
+      <div class="tab-page" data-page="layers">
+        <div class="layers-wrap">
+          <div class="layers-head">
+            <div class="bold">Objects</div>
+            <div class="muted small">Click to select, double-click to focus in viewport.</div>
+          </div>
+          <div class="prop-grid">
+            <div><div class="prop-label">Search</div><input class="inp" id="layersSearch" /></div>
+            <div style="max-width:150px"><div class="prop-label">Type Filter</div>
+              <select class="inp" id="layersFilter">
+                <option>All</option><option>Vertexes</option><option>Segments</option><option>Discs</option>
+                <option>Goals</option><option>Planes</option><option>Spawn Points</option><option>Joints</option>
+              </select>
+            </div>
+          </div>
+          <div class="layers-actions">
+            <button class="smallbtn" data-layer="hide">Hide</button>
+            <button class="smallbtn" data-layer="showall">Show All</button>
+            <button class="smallbtn" data-layer="delete">Delete</button>
+          </div>
+          <div class="listbox mono" id="objectsList"></div>
+        </div>
+      </div>
+
+      <!-- Validator -->
+      <div class="tab-page" data-page="validator">
+        <div class="layers-wrap">
+          <div class="layers-head"><div class="bold">Stadium Validator</div>
+            <div class="muted small">Checks invalid indexes, unsafe values, colors, collision groups.</div></div>
+          <div class="info-box validate-bar">
+            <div>
+              <div class="bold" id="valSummary">Not validated yet.</div>
+              <div class="muted small" id="valDetails">Press Validate to scan the current stadium.</div>
+            </div>
+            <button class="smallbtn" id="valBtn">&#128737; Validate</button>
+          </div>
+          <div class="listbox mono" id="valList"></div>
+        </div>
+      </div>
+
+      <!-- JSON -->
+      <div class="tab-page" data-page="json">
+        <div class="json-wrap">
+          <div class="json-head">
+            <span class="bold">Editable Stadium JSON</span>
+            <div>
+              <button class="smallbtn" id="jsonApply">Apply JSON</button>
+              <button class="smallbtn" id="jsonRefresh">Refresh</button>
+            </div>
+          </div>
+          <textarea id="jsonArea" class="json-area mono" spellcheck="false"></textarea>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div class="tab-page" data-page="history">
+        <div class="layers-wrap">
+          <div class="layers-head">
+            <div class="hist-head">
+              <div>
+                <div class="bold">History</div>
+                <div class="muted small" id="histSummary">No edit history yet.</div>
+              </div>
+              <div class="layers-actions" style="margin:0">
+                <button class="smallbtn" id="histUndo">&#8630; Undo</button>
+                <button class="smallbtn" id="histRedo">&#8631; Redo</button>
+              </div>
+            </div>
+            <div class="info-box" style="margin-top:10px">
+              <div class="muted small">This panel shows the current undo and redo stacks. Use Ctrl+Z / Ctrl+Y or the buttons above.</div>
+            </div>
+          </div>
+          <div class="listbox" id="histList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ROW 3 : Status bar ===================== -->
+  <div class="statusbar">
+    <span id="statusText">Ready</span>
+    <span id="selectedStatus">Selected: none</span>
+    <span id="perfText" class="right">Render: -- ms | Drawn: --</span>
+    <span id="objectCount" class="right">Vertexes: 0 | Segments: 0 | Goals: 0 | Planes: 0 | Discs: 0 | Joints: 0 | Spawns: 0</span>
+  </div>
+
+  <!-- Splash -->
+  <div id="splash">
+    <div class="splash-card">
+      <div class="splash-left">
+        <div class="splash-logo">H</div>
+        <div class="splash-name">HaxStudio</div>
+        <div class="splash-ver">Web 1.0.0</div>
+      </div>
+      <div class="splash-right">
+        <div class="splash-title">Modern HaxBall Stadium Editor</div>
+        <div class="muted small">Preparing editor workspace</div>
+        <div class="splash-status" id="splashStatus">Starting HaxStudio...</div>
+        <div class="splash-progress"><div class="splash-bar" id="splashBar"></div></div>
+        <div class="muted small" style="margin-top:6px">Vanilla JS / Canvas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Tool popup: Text to Segments ===================== -->
+  <div id="toolPopupBackdrop" class="tool-popup-backdrop" hidden>
+    <div class="tool-popup" id="textPopup">
+      <div class="tool-popup-head" id="textPopupHead">
+        <span class="tool-popup-title">&#128172; Text to Segments</span>
+        <button class="tool-popup-close" id="textPopupClose" title="Close">&#10005;</button>
+      </div>
+      <div class="tool-popup-body">
+        <div class="muted small" style="margin-bottom:10px">Write text here, then HaxStudio will draw it with real stadium segments.</div>
+        <div class="prop-label">Text</div>
+        <input class="inp" id="txtText" value="HaxStudio" />
+        <div class="prop-grid">
+          <div><div class="prop-label">Size</div><input class="inp" id="txtSize" value="32" /></div>
+          <div><div class="prop-label">Color</div><input class="inp" id="txtColor" value="#FFFFFF" /></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="txtNoCollision" checked /> No collision / decorative text</label>
+      </div>
+      <div class="tool-popup-foot">
+        <button class="smallbtn" id="textPopupCancel">Close</button>
+        <button class="topbtn primary" id="txtGenerate" style="height:30px;min-width:150px">Generate Text Segments</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept=".hbs,.json,application/json" hidden />
+</div>
+
+  <script src="app.min.js"></script>
+</body>
+</html>
