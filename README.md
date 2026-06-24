@@ -2,6 +2,7 @@
 
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord\&logoColor=white)](https://discord.gg/3aDwUt88td)
 [![Latest Release](https://img.shields.io/github/v/release/xYigit58/HaxStudio?label=latest%20release)](https://github.com/xYigit58/HaxStudio/releases/latest)
+[![HaxStudio Web](https://img.shields.io/badge/HaxStudio-Web-00C853?logo=googlechrome&logoColor=white)](https://hax-studio.vercel.app/)
 
 A modern HaxBall stadium editor for Browser/Windows.
 
